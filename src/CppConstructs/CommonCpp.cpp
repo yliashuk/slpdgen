@@ -53,3 +53,22 @@ std::string CppConstructs::PutInQuotes(string var)
 {
     return '"' + var + '"';
 }
+
+vector<string> CppConstructs::PutInBlock(const vector<string> strings)
+{
+    vector<string> body;
+
+    body.push_back("{");
+    for(auto& str : strings)
+    {
+        body.push_back(tab + str);
+    }
+    body.push_back("}");
+
+    return body;
+}
+
+string CppConstructs::PrintMemset(string dst, string val, string len)
+{
+    return std::string("memset") + lsb +  dst + com + val + com + len + rsb + smcln;
+}

@@ -2,6 +2,7 @@
 #define STRUCTFIELDDATABUILDER_H
 
 #include <memory>
+#include <string>
 using namespace std;
 
 struct FieldInfo

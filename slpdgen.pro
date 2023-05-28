@@ -58,6 +58,7 @@ HEADERS += \
     src/CppConstructs/SwitchCpp.h \
     src/Generator/CodeGenerator.h \
     src/Generator/ComplexTypeDescription.h \
+    src/Generator/DescriptionHelper.h \
     src/Generator/EnumDescription.h \
     src/Generator/Generics.h \
     src/Generator/Polynomial.h
@@ -73,6 +74,7 @@ SOURCES += \
     src/CppConstructs/SwitchCpp.cpp \
     src/Generator/CodeGenerator.cpp \
     src/Generator/ComplexTypeDescription.cpp \
+    src/Generator/DescriptionHelper.cpp \
     src/Generator/EnumDescription.cpp \
     src/Generator/Polynomial.cpp \
     src/main.cpp

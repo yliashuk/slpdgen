@@ -111,6 +111,7 @@ private:
     vector<string> SetBodyGetLocaParamsFun(vector<Parameter> params);
     string PrintClassText(string var);
     string PrintStructText(string var);
+    vector<string> PrintMemoryManager();
 };
 
 #endif // CODEGENERATOR_H

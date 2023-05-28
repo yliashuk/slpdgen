@@ -66,7 +66,7 @@ struct FieldData
     FieldData(){}
     FieldData(FieldInfo data, bool isStdType)
         :isStdType(isStdType),
-         isNumOfCeils(data.isNumOfCeils),
+         isArrayField(data.isNumOfCeils),
          withLenDefiningVar(data.withLenDefiningVar),
          lenDefiningVar(data.lenDefiningVar),
          type(data.type),
@@ -78,12 +78,12 @@ struct FieldData
          isWithInitType(data.isWithSpecialType),
          initType(data.specialType)
     {
-        if(isNumOfCeils)
+        if(isArrayField)
             value = data.constLenDefiningVar;
     }
 
     bool   isStdType    = false;
-    bool   isNumOfCeils = false;
+    bool   isArrayField = false;
     bool   withLenDefiningVar = false;
     string lenDefiningVar;
     string type;

@@ -11,38 +11,19 @@
 #include "CppConstructs/ForLoopCpp.h"
 
 #include "Polynomial.h"
+
+#include "DescriptionHelper.h"
+
 using namespace std;
 using namespace CppConstructs;
 
-enum class fieldType
-{
-    std,
-    Enum,
-    Code,
-    Type,
-    Struct
-};
-
-struct StructField
-{
-    pair<string,fieldType> type;
-    string fieldName;
-    Polynomial fieldSize;
-    Polynomial fieldOffset;
-    Polynomial baseTypeSize; // for array fields
-    FieldData data;
-};
 
 struct EnumField
 {
     string fieldName;
     uint32_t value;
 };
-enum FunType
-{
-    Ser,
-    Des
-};
+
 enum class ComplexType
 {
     Struct,
@@ -84,9 +65,11 @@ public:
     string PrintDesCall(string pointerName, string paramName);
     string PrintDesCall();
     string PrintVarDecl();
+    vector<string> PrintSizeCalcFun(FunType type, bool hasStatic = true);
+    string PrintSizeCalcFunCall(FunType type);
     string BlType();
     Function GetCompareFun();
-    bool WithVarArray = false;
+    bool hasDynamicFields = false;
     vector<VarArray> varArrays;
     //string varArrayTypeName;
     void SetPrefix(string prefix);
@@ -99,6 +82,8 @@ private:
     string _pDes = "Des_";
 
     string FieldMetaType(fieldType type);
+
+    bool IsArrayVarLen(string name);
 };
 
 #endif // COMPLEXTYPEDESCRIPTION_H

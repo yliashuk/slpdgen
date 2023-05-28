@@ -220,6 +220,52 @@ vector<string> CodeGenerator::MainDesFormat()
     string varType, varCommand, localStatement, dataLenStatement;
     IfElseStatementCpp if_else_localStatement, if_else_dataLenStatement;
 
+    string callCalcFun;
+    auto addCaseTo_if_else_LocalStatement = [&](InterfaceFunction& var)
+    {
+        vector<string> caseBody;
+        vector<string> statementDef = if_else_dataLenStatement.GetDefinition();
+
+        // Print call calc size fun
+        if(statementDef[0].find("header.dataLen == 0") == string::npos)
+        {
+            string call = PrintVarDeclaration("c_size_t", "size", callCalcFun);
+            DescHelper::AppendStrings(caseBody, {call});
+        }
+
+        DescHelper::AppendStrings(caseBody, statementDef);
+
+        if(_qtOption || _qtCppOption)
+        {
+            if_else_localStatement.AddCase("header." +
+                                           typeName + eql + varType,
+                                           caseBody);
+        }
+        else
+        {
+            if_else_localStatement.AddCase("header." +
+                                           typeName + eql + _fileNameLowerCase +
+                                           b_und + varType,
+                                           caseBody);
+        }
+
+        if_else_dataLenStatement.Clear();
+        varType = var.type;
+    };
+
+    auto addCaseToSwitch = [&](InterfaceFunction& var)
+    {
+        if(_qtOption || _qtCppOption)
+            switchOperator.AddCase(varCommand,if_else_localStatement.GetDefinition());
+        else {
+            switchOperator.AddCase(_fileNameLowerCase + b_und + varCommand,
+                                   if_else_localStatement.GetDefinition());
+        }
+
+        if_else_localStatement.Clear();
+        varCommand = var.command;
+    };
+
     vector<string> specialParameterFromHeader, parameterBuffer;
     for(auto var:_headerDeclarations.fields) {
         if(var.data.initType == "local" || var.data.initType == "remote")
@@ -239,71 +285,42 @@ vector<string> CodeGenerator::MainDesFormat()
     {
         if(varCommand != var->command || varType != var->type)
         {
-            if(_qtOption || _qtCppOption)
-            {
-                if_else_localStatement.AddCase("header." +
-                                               typeName + eql + varType,
-                                               if_else_dataLenStatement.GetDefinition());
-            }
-            else
-            {
-                if_else_localStatement.AddCase("header." +
-                                               typeName + eql + _fileNameLowerCase +
-                                               b_und + varType,
-                                               if_else_dataLenStatement.GetDefinition());
-            }
-
-            if_else_dataLenStatement.Clear();
-            varType = var->type;
+            addCaseTo_if_else_LocalStatement(*var);
         }
 
         if(varCommand != var->command)
         {
-            if(_qtOption || _qtCppOption)
-                switchOperator.AddCase(varCommand,if_else_localStatement.GetDefinition());
-            else {
-                switchOperator.AddCase(_fileNameLowerCase + b_und + varCommand,
-                                       if_else_localStatement.GetDefinition());
-            }
-
-            if_else_localStatement.Clear();
-            varCommand = var->command;
-            //if_else_dataLenStatement.clear();
+            addCaseToSwitch(*var);
         }
         if(var->withPacket)
         {
             buffer.clear();
-            buffer.push_back(var->packet.GetCodeName() + spc +"str" + smcln);
-            if(var->packet.WithVarArray)
-            {
-                int a = 0;
-                for(auto arr : var->packet.varArrays)
-                {
-                    string allocateSize = lsb + "header.dataLen / " +
-                            arr.varArraySize.Get() + rsb + "*" +
-                            PrintSizeOf(arr.varArrayTypeName)+ "+" +
-                            arr.varArraySize.Get();
+            buffer.push_back(var->packet.GetCodeName() + spc +"str = {}" + smcln);
 
-                    if(_qtOption)
-                    {
-                        buffer.push_back("std::unique_ptr<char[]> buffer" +
-                                         to_string(a) + lsb + "new char" +
-                                         PutInSqBraces(allocateSize) + rsb + smcln);
-                        buffer.push_back("str." + arr.varArrayType + "=" + lsb +
-                                         arr.varArrayTypeName+ "*" + rsb + "buffer" +
-                                         to_string(a) + ".get()" + smcln);
-                    }
-                    else if(!_qtCppOption)
-                    {
-                        buffer.push_back("uint16_t" + spc + "buffer" + to_string(a) +
-                                         PutInSqBraces(allocateSize) + smcln);
-                        buffer.push_back("str." + arr.varArrayType + "=" + lsb +
-                                         arr.varArrayTypeName+ "*" + rsb + "buffer" +
-                                         to_string(a) + smcln);
-                    }
-                    a++;
+            // for print call calc size fun after check header.type
+            callCalcFun = PrintClassText(var->packet.PrintSizeCalcFunCall(Des));
+
+            // buffer allocation
+            {
+                string allocateSize = "size.d + 1";
+                if(_qtOption)
+                {
+                    buffer.push_back("std::unique_ptr<char[]> buffer" +
+                                     lsb + "new char" +
+                                     PutInSqBraces(allocateSize) + rsb + smcln);
+                }
+                else if(!_qtCppOption)
+                {
+                    buffer.push_back("char" + spc + "buffer" +
+                                     PutInSqBraces(allocateSize) + smcln);
+                }
+                if(!_qtCppOption)
+                {
+                    buffer.push_back(PrintMemset("&buffer[0]", "0", allocateSize));
+                    buffer.push_back("buf_p = &buffer[0]" + smcln);
                 }
             }
+
             buffer.push_back(PrintClassText(
                                  var->packet.PrintSerDesCall(FunType::Des,"&str") +
                                  smcln));
@@ -323,13 +340,7 @@ vector<string> CodeGenerator::MainDesFormat()
                 buffer.insert(buffer.begin(), str.begin(), str.end());
             }
             buffer.push_back(PrintStructText(var->func.GetCall(parameterBuffer,true)));
-
-            if(var->packet.WithVarArray)
-                if_else_dataLenStatement.AddCase("header.dataLen" + neql +"0",buffer);
-            else {
-                if_else_dataLenStatement.AddCase("header.dataLen" + eql +
-                                                 var->packet.Size().Get(),buffer);
-            }
+            if_else_dataLenStatement.AddCase("header.dataLen >= size.r",buffer);
         }
         else
         {
@@ -351,30 +362,10 @@ vector<string> CodeGenerator::MainDesFormat()
             buffer.push_back(PrintStructText(var->func.GetCall(buf, true)));
             if_else_dataLenStatement.AddCase("header.dataLen" + eql + "0",buffer);
         }
-        if(var == --interfaceReceiveFunctions.end())
+        if(var == --interfaceReceiveFunctions.end()) // if last valid function
         {
-            if(_qtOption || _qtCppOption) {
-                if_else_localStatement.AddCase("header." + typeName + eql + varType,
-                                               if_else_dataLenStatement.GetDefinition());
-            } else
-            {
-                if_else_localStatement.AddCase("header." + typeName + eql +
-                                               _fileNameLowerCase + b_und + varType,
-                                               if_else_dataLenStatement.GetDefinition());
-            }
-            if_else_dataLenStatement.Clear();
-            varType = var->type;
-
-            if(_qtOption || _qtCppOption) {
-                switchOperator.AddCase(varCommand,
-                                       if_else_localStatement.GetDefinition());
-            }
-            else {
-                switchOperator.AddCase(_fileNameLowerCase + b_und + varCommand,
-                                       if_else_localStatement.GetDefinition());
-            }
-            if_else_localStatement.Clear();
-            varCommand = var->command;
+            addCaseTo_if_else_LocalStatement(*var);
+            addCaseToSwitch(*var);
         }
     }
     auto text = switchOperator.GetDeclaration();
@@ -558,7 +549,7 @@ pair<string,size_t> CodeGenerator::ConvertToCStdType(string slpdType)
 
 string CodeGenerator::GetVersion()
 {
-    return string("// SLPD Version 1.1 Build " + string(__TIME__) + ' ' +
+    return string("// SLPD Version 1.1.1 Build " + string(__TIME__) + ' ' +
                   string(__DATE__) +"\n\n");
 }
 
@@ -701,6 +692,10 @@ void CodeGenerator::GenerateHeaderQt()
     PrintToFile(_oStream, tab + _parseFun.GetDeclaration());
     PrintToFile(_oStream, tab + _fileName + "(QObject *parent = nullptr)" + smcln);
     _oStream << endl;
+
+    if(_addrOption)
+        PrintToFile(_oStream, tab + "using addr_t = Addr;");
+
     PrintToFile(_oStream, "private:");
     PrintToFile(_oStream, tab + "Base* base;");
     PrintToFile(_oStream, rb + smcln);
@@ -716,9 +711,10 @@ void CodeGenerator::GenerateSource()
     _oStream << PrintInclude("string.h") << endl;
     _oStream << PrintInclude(_fileName + ".h", true) << endl;
 
-    //for(auto var:localVar)
-    //    PrintToFile(stream,PrintVarDeclaration("uint16_t",var.second));
-
+    _oStream << endl;
+    PrintToFile(_oStream, PrintMemoryManager());
+    _oStream << endl;
+    PrintToFile(_oStream, DescHelper::CSizeDef());
     _oStream << endl;
     PrintToFile(_oStream, _initFun.GetDefinition());
     _oStream << endl;
@@ -728,6 +724,8 @@ void CodeGenerator::GenerateSource()
     for(auto var : _structDeclarations) {
         PrintToFile(_oStream, var.PrintSerDesDeclaration(FunType::Ser));
         PrintToFile(_oStream, var.PrintSerDesDeclaration(FunType::Des));
+        PrintToFile(_oStream, var.PrintSizeCalcFun(FunType::Ser));
+        PrintToFile(_oStream, var.PrintSizeCalcFun(FunType::Des));
     }
 
     PrintToFile(_oStream, MainSerFormaters());
@@ -748,6 +746,14 @@ void CodeGenerator::GenerateSourceQt()
     _oStream << PrintInclude("string.h") << endl;
     _oStream << PrintInclude(_fileName + ".h", true) << endl;
     _oStream << "namespace " + _fileName + "Space" << endl << lb << endl;
+
+    _oStream << endl;
+    PrintToFile(_oStream, DescHelper::CSizeDef());
+    _oStream << endl;
+
+    if(!_qtCppOption){
+        PrintToFile(_oStream, PrintMemoryManager());
+    }
 
     if(_qtCppOption)
     {
@@ -773,6 +779,8 @@ void CodeGenerator::GenerateSourceQt()
     for(auto var : _structDeclarations) {
         PrintToFile(_oStream,var.PrintSerDesDeclaration(FunType::Ser, false));
         PrintToFile(_oStream,var.PrintSerDesDeclaration(FunType::Des, false));
+        PrintToFile(_oStream,var.PrintSizeCalcFun(FunType::Ser, false));
+        PrintToFile(_oStream,var.PrintSizeCalcFun(FunType::Des, false));
     }
     _oStream << rb + smcln << endl; //end Base class
 
@@ -1142,18 +1150,6 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerCommandVar,
                                                        vector<Parameter> headerRemoteParam)
 {
     vector<string> strings;
-
-    if(_qtCppOption)
-    {
-        for(auto field : packet.fields)
-        {
-            if(field.data.withLenDefiningVar) {
-                strings.push_back("str->" + field.data.lenDefiningVar + " = str->" +
-                                  field.fieldName + ".size()" + smcln);
-            }
-        }
-    }
-
     strings.push_back(_headerDeclarations.BlType() + b_und + _headerDeclarations.name +
                       spc + "header;");
 
@@ -1179,7 +1175,9 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerCommandVar,
                                   smcln);
             }
     }
-    strings.push_back("header.dataLen = " + packet.Size().Get() + smcln);
+
+    string callCalcFun = PrintClassText(packet.PrintSizeCalcFunCall(Ser));
+    strings.push_back("header.dataLen = " + callCalcFun + smcln);
 
     for(auto param: _localVar)
     {
@@ -1225,10 +1223,7 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerCommandVar,
         params.push_back(GetAddrParameter().name);
 
     params.push_back("buffer");
-    string buf;
-    buf += (_headerDeclarations.Size() + packet.Size()).Get();
-
-    params.push_back(buf);
+    params.push_back(_headerDeclarations.Size().Get() + " + header.dataLen");
 
     if((_qtOption || _qtCppOption) == false)
     {
@@ -1304,4 +1299,23 @@ string CodeGenerator::PrintStructText(string var)
         return "obj->_CBsStruct." + var;
     else
         return var;
+}
+
+vector<string> CodeGenerator::PrintMemoryManager()
+{
+    vector<string> strings;
+
+    strings.push_back("static char* buf_p" + smcln);
+
+    Function fun;
+    fun.SetStaticDeclaration(true);
+    Parameter param = {"size_t", "size"};
+    fun.SetDeclaration("allocate", "static char*", {param});
+    vector<string> body;
+    body.push_back("char* tmp = buf_p" + smcln);
+    body.push_back("buf_p += size" + smcln);
+    body.push_back("return tmp" + smcln);
+    fun.SetBody(body);
+    DescHelper::AppendStrings(strings, fun.GetDefinition());
+    return strings;
 }

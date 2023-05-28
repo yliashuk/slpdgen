@@ -2,6 +2,7 @@
 #define COMMONCPP_H
 
 #include<string>
+#include<vector>
 
 using namespace std;
 
@@ -36,10 +37,11 @@ namespace CppConstructs
 
     std::string PrintInclude(std::string fileName, bool isLocalfile = false);
     std::string PrintMemcpy(std::string dst, std::string src, std::string len);
+    std::string PrintMemset(std::string dst, std::string val, std::string len);
     std::string PrintSizeOf(std::string var);
     std::string PutInSqBraces(std::string var);
     std::string PutInQuotes(std::string var);
-
+    vector<string> PutInBlock(const vector<string> strings);
 } // namespace CppConstructs
 
 #endif // COMMONCPP_H

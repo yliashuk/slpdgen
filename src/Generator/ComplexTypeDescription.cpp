@@ -42,12 +42,14 @@ void ComplexTypeDescription::addField(FieldDataStruct data,
     field.type.first = type.first;
     field.type.second = type.second;
 
-    if(data.second.isNumOfCeils)
-        field.baseTypeSize = fieldSize;
-    if(data.second.isNumOfCeils && data.second.withLenDefiningVar == false)
-        field.fieldSize = fieldSize * data.second.value;
-    else if(data.second.isNumOfCeils && data.second.withLenDefiningVar == true)
-        field.fieldSize = fieldSize * ("str->" + data.second.lenDefiningVar);
+    if(data.second.isArrayField) {
+        if(data.second.withLenDefiningVar) {
+            field.fieldSize = ("str->" + data.second.lenDefiningVar);
+        } else {
+            field.fieldSize =  data.second.value;
+        }
+        field.arrayTypeSize = fieldSize;
+    }
     else field.fieldSize = fieldSize;
 
     field.fieldOffset = Size();
@@ -55,7 +57,7 @@ void ComplexTypeDescription::addField(FieldDataStruct data,
 
     if(data.second.withLenDefiningVar)
     {
-        this->WithVarArray = true;
+        this->hasDynamicFields = true;
         VarArray arr;
         arr.varArrayType = data.first;
         arr.varArraySize = fieldSize;
@@ -88,7 +90,7 @@ vector<string> ComplexTypeDescription::PrintDecl()
             p = "*";
             s = " //" + var.fieldName + PutInSqBraces(var.data.lenDefiningVar);
         }
-        else if(var.data.isNumOfCeils)
+        else if(var.data.isArrayField)
             e = PutInSqBraces(to_string(var.data.value));
 
         if(qtCppOption) {
@@ -111,7 +113,7 @@ vector<string> ComplexTypeDescription::PrintDecl()
                                   var.type.first + ">"+ spc + var.fieldName + smcln);
             }
         }
-        else if(qtCppOption && var.data.isNumOfCeils)
+        else if(qtCppOption && var.data.isArrayField)
         {
             auto customType = FieldMetaType(var.type.second) + b_und + var.type.first;
             auto arary_type = (var.type.second == fieldType::std) ?
@@ -151,12 +153,14 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
     if(hasStatic)
         preStatic = "static ";
 
+    funcBody.push_back("uint32_t size = 0" + smcln);
+
     if(type == Ser)
     {
         vector<Parameter> params;
         params.push_back({"char*", "p"});
         params.push_back({BlockName, "*str"});
-        funConstruct.SetDeclaration(_pSer + BlType() + b_und + name,preStatic + "void",
+        funConstruct.SetDeclaration(_pSer + BlType() + b_und + name,preStatic + "uint32_t",
                                     params);
     }
     else
@@ -168,15 +172,14 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
         params.push_back({"char*", "p"});
         params.push_back({BlockName, "*str"});
         params.push_back({"uint8_t*", "op_status"});
-        funConstruct.SetDeclaration(_pDes + BlType() + b_und + name,preStatic + "void",
+        funConstruct.SetDeclaration(_pDes + BlType() + b_und + name,preStatic + "uint32_t",
                                     params);
     }
 
     if(type == Des)
     {
-        //funcBody.push_back(PrintVarDeclaration(BlockName,"str"));
         IfElseStatementCpp statement;
-        statement.AddCase("*op_status == 0", "return" + smcln);
+        statement.AddCase("*op_status == 0", "return size" + smcln);
         auto var = statement.GetDefinition();
         funcBody.insert(funcBody.end(), var.begin(), var.end());
     }
@@ -187,21 +190,24 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
         {
             if(type == Ser)
             {
-                if(var->data.isNumOfCeils)
+                if(var->data.isArrayField)
                 {                    
                     ForLoopCpp loop;
-                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() +
-                                        " / " + var->baseTypeSize.Get() ,"i++");
-                    loop.SetBody(PrintMemcpy((Polynomial(string("p")) +
-                                              var->fieldOffset +
-                                              var->baseTypeSize * "i").Get(),
-                                             string("&str->") + var->fieldName +
-                                             PutInSqBraces("i"),
-                                             var->baseTypeSize.Get()));
+                    vector<string> body;
 
-                    auto var = loop.GetDefinition();
-                    funcBody.insert(funcBody.end(),var.begin(),var.end());
+                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
+                                        " / " + var->baseTypeSize.Get()*/ ,"i++");
 
+                    body.push_back(PrintMemcpy(string("p + size"),
+                                               string("&str->") + var->fieldName +
+                                               PutInSqBraces("i"),
+                                               var->arrayTypeSize.Get()));
+                    body.push_back("size += " + var->arrayTypeSize.Get() + smcln);
+                    loop.SetBody(body);
+
+
+                    auto def = loop.GetDefinition();
+                    funcBody.insert(funcBody.end(),def.begin(),def.end());
                 }
                 else
                 {
@@ -209,17 +215,18 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                         funcBody.push_back(PrintVarDefinition("str->" +
                                                               var->fieldName,
                                                               to_string(var->data.value)));
-                    funcBody.push_back(PrintMemcpy((Polynomial(string("p")) +
-                                                    var->fieldOffset).Get(),
+                    funcBody.push_back(PrintMemcpy(string("p + size"),
                                                    string("&str->")+var->fieldName,
                                                    var->fieldSize.Get()));
+                    funcBody.push_back("size += " + var->fieldSize.Get() + smcln);
                 }
             }
             else
             {
-                if(var->data.isNumOfCeils)
+                if(var->data.isArrayField)
                 {
                     ForLoopCpp loop;
+                    vector<string> body;
 
                     if(qtCppOption && var->data.withLenDefiningVar)
                     {
@@ -227,15 +234,31 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                                            ".resize" + "(str->" +
                                            var->data.lenDefiningVar + ")" + smcln);
                     }
+                    else if(var->data.withLenDefiningVar)
+                    {
+                        string numOfElements = var->data.lenDefiningVar;
 
-                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() +
-                                        " / " + var->baseTypeSize.Get(),"i++");
-                    loop.SetBody(PrintMemcpy(string("&str->")+var->fieldName +
-                                             PutInSqBraces("i"),
-                                             (Polynomial(string("p")) +
-                                              var->fieldOffset +
-                                              var->baseTypeSize * "i").Get(),
-                                             var->baseTypeSize.Get()));
+                        string typePrefix = FieldMetaType(var->type.second);
+                        if(typePrefix.size() > 0) typePrefix += b_und;
+
+                        string elementType = typePrefix + var->type.first;
+                        string elementSize = PrintSizeOf(elementType);
+                        string typeConvers = "(" + elementType + "*)";
+
+                        funcBody.push_back(string("str->") + var->fieldName +
+                                           " =" + typeConvers + "allocate" + "(str->" +
+                                           numOfElements + "*" + elementSize + ")" + smcln);
+                    }
+
+                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
+                                        " / " + var->baseTypeSize.Get()*/,"i++");
+
+                    body.push_back(PrintMemcpy(string("&str->") + var->fieldName +
+                                               PutInSqBraces("i"),
+                                               string("p + size"),
+                                               var->arrayTypeSize.Get()));
+                    body.push_back("size += " + var->arrayTypeSize.Get() + smcln);
+                    loop.SetBody(body);
 
                     auto var = loop.GetDefinition();
                     funcBody.insert(funcBody.end(),var.begin(),var.end());
@@ -253,15 +276,15 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                     }
 
                     funcBody.push_back(PrintMemcpy(string("&str->") + var->fieldName,
-                                                   (Polynomial(string("p")) +
-                                                    var->fieldOffset).Get(),
+                                                   string("p + size"),
                                                    var->fieldSize.Get()));
+                    funcBody.push_back("size += " + var->fieldSize.Get() + smcln);
                     if(var->data.defaultValue)
                     {
                         IfElseStatementCpp statement;
                         statement.AddCase("str->" + var->fieldName + neql +
                                           to_string(var->data.value), "*op_status = 0" +
-                                          smcln + " return"+smcln);
+                                          smcln + " return size" + smcln);
                         auto var = statement.GetDefinition();
                         funcBody.insert(funcBody.end(),var.begin(),var.end());
                     }
@@ -274,11 +297,11 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                                 to_string(var->data.max);
                         if(var->data.min == 0){
                             statement.AddCase(st2,"*op_status = 0" + smcln + +
-                                              " return" + smcln);
+                                              " return size" + smcln);
                         }
                         else {
                             statement.AddCase(st1 + orS + st2,"*op_status = 0" +
-                                              smcln + + " return" + smcln);
+                                              smcln + + " return size" + smcln);
                         }
                         auto var = statement.GetDefinition();
                         funcBody.insert(funcBody.end(),var.begin(),var.end());
@@ -290,16 +313,14 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
             Function localFunc;
             if(type == Ser)
             {
-                if(var->data.isNumOfCeils)
+                if(var->data.isArrayField)
                 {
                     ForLoopCpp loop;
 
-                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() +
-                                        " / " + var->baseTypeSize.Get(),"i++");
-                    loop.SetBody(_pSer + FieldMetaType(var->type.second) + b_und +
-                                 var->type.first + lsb + (Polynomial(string("p")) +
-                                                          var->fieldOffset +
-                                                          var->baseTypeSize * "i").Get() +
+                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
+                                        " / " + var->baseTypeSize.Get()*/,"i++");
+                    loop.SetBody("size += " + _pSer + FieldMetaType(var->type.second) + b_und +
+                                 var->type.first + lsb + string("p + size")  +
                                  com + "&str->" + var->fieldName + PutInSqBraces("i") +
                                  rsb + smcln);
 
@@ -309,15 +330,15 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                 }
                 else
                 {
-                    funcBody.push_back(_pSer + FieldMetaType(var->type.second) +
+                    funcBody.push_back("size += " + _pSer + FieldMetaType(var->type.second) +
                                        b_und + var->type.first + lsb +
-                                       (Polynomial(string("p")) + var->fieldOffset).Get() +
+                                       string("p + size") +
                                        com + "&str->" + var->fieldName + rsb + smcln);
                 }
             }
             else
             {
-                if(var->data.isNumOfCeils)
+                if(var->data.isArrayField)
                 {
                     ForLoopCpp loop;
 
@@ -327,13 +348,24 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                                            ".resize" + "(str->" +
                                            var->data.lenDefiningVar + ")" + smcln);
                     }
+                    else if(var->data.withLenDefiningVar)
+                    {
+                        string numOfElements = var->data.lenDefiningVar;
+                        string typePrefix = FieldMetaType(var->type.second);
+                        string elementType = typePrefix + b_und + var->type.first;
+                        string elementSize = PrintSizeOf(elementType);
+                        string typeConvers = "(" + elementType + "*)";
 
-                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() +
-                                        " / " + var->baseTypeSize.Get(),"i++");
-                    loop.SetBody(_pDes + FieldMetaType(var->type.second) + b_und +
+                        funcBody.push_back(string("str->") + var->fieldName +
+                                           " =" + typeConvers + "allocate" + "(str->" +
+                                           numOfElements + "*" + elementSize + ")" + smcln);
+                    }
+
+                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
+                                        " / " + var->baseTypeSize.Get()*/,"i++");
+                    loop.SetBody("size += " + _pDes + FieldMetaType(var->type.second) + b_und +
                                  var->type.first + lsb +
-                                 (Polynomial(string("p")) + var->fieldOffset +
-                                  var->baseTypeSize * "i").Get() +
+                                 string("p + size") +
                                  com + "&str->" + var->fieldName +
                                  PutInSqBraces("i") + com + string("op_status") +
                                  rsb + smcln);
@@ -342,14 +374,15 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                     funcBody.insert(funcBody.end(),var.begin(),var.end());
 
                 }else
-                funcBody.push_back(_pDes + FieldMetaType(var->type.second) +
+                funcBody.push_back("size += " + _pDes + FieldMetaType(var->type.second) +
                                    b_und +var->type.first + lsb +
-                                   (Polynomial(string("p")) + var->fieldOffset).Get() +
+                                   string("p + size") +
                                    com + string("&str->")+var->fieldName + com +
                                    string("op_status")+ rsb + smcln);
             }
         }
     }
+    funcBody.push_back("return size" + smcln);
     funConstruct.SetBody(funcBody);
     return funConstruct.GetDefinition();
 }
@@ -401,6 +434,89 @@ string ComplexTypeDescription::PrintVarDecl()
     return BlType() + b_und + name + spc + "header";
 }
 
+vector<string> ComplexTypeDescription::PrintSizeCalcFun(FunType type, bool hasStatic)
+{
+    auto fun = DescHelper::CalcSizeFunDecl(BlType() + b_und + name, type, hasStatic);
+
+    vector<string> body;
+
+    if(type == Ser)
+    {
+        // set vector sizes to array length variables
+        if(qtCppOption)
+        {
+            for(const auto& var : varArrays)
+            {
+                body.push_back("str->" + var.varArrayLen + " = str->" +
+                               var.varArrayType + ".size()" + smcln);
+            }
+            if(varArrays.size()){ body.push_back(""); }
+        }
+        // for suppress unused warning
+        body.push_back("(void)str" + smcln);
+
+        body.push_back("size_t size = 0" + smcln);
+    }
+    else
+    {
+        string structName = BlType() + b_und + name;
+        body.push_back("(void)p" + smcln);
+
+        string initVal = "{" + PrintSizeOf(structName) + ", 0, 0}";;
+        body.push_back("c_size_t c_size = "  + initVal + smcln);
+    }
+
+    for(auto field : fields)
+    {
+        string prefix = FieldMetaType(field.type.second) + b_und;
+        fieldType fldType = field.type.second;
+        bool isArray  = field.data.isArrayField;
+        bool isDynamicArray = field.data.withLenDefiningVar;
+
+        if(fldType != fieldType::Struct)
+        {
+            if(type == Des && IsArrayVarLen(field.fieldName))
+            {
+                string name = field.fieldName;
+                string size = field.fieldSize.Get();
+                string type = field.type.first;
+                body.push_back(PrintVarDeclaration(type, name, "0"));
+                body.push_back(PrintMemcpy("&" + name, "p + c_size.r", size));
+            }
+            if(type == Des && isDynamicArray)
+            {
+                string calc;
+                calc = DescHelper::CalcDesSimpleArrTypeSize(prefix, field);
+                body.push_back(calc);
+            }
+            body.push_back(DescHelper::CalcSimpeTypeSize(field, type));
+        }
+        else if(isArray && fldType == fieldType::Struct)
+        {
+            auto loopDef = DescHelper::CalcSizeLoop(prefix, field, type);
+            DescHelper::AppendStrings(body, loopDef);
+        }
+        else if(fldType == fieldType::Struct)
+        {
+            auto calcSize = DescHelper::CalcStructSize(prefix, field, type);
+            DescHelper::AppendStrings(body, calcSize);
+        }
+    }
+
+    string returnVarName = type == Ser ? "size" : "c_size";
+    body.push_back("return " + returnVarName + smcln);
+
+    fun.SetBody(body);
+    return fun.GetDefinition();
+}
+
+string ComplexTypeDescription::PrintSizeCalcFunCall(FunType type)
+{
+    auto funName = DescHelper::CalcSizeFunName(BlType() + b_und + name, type);
+    string varName = type == Ser ? "str" : "l_p";
+    return funName + "(" + varName + ")";
+}
+
 string ComplexTypeDescription::BlType()
 {
     if(blockType == ComplexType::Message) return  _prefix + "message";
@@ -423,6 +539,18 @@ string ComplexTypeDescription::FieldMetaType(fieldType type)
     case fieldType::Type: return _prefix + "TYPE";
     default: return "";
     }
+}
+
+bool ComplexTypeDescription::IsArrayVarLen(string name)
+{
+    for(const auto& lenVar : varArrays)
+    {
+        if(lenVar.varArrayLen == name)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 Function ComplexTypeDescription::GetCompareFun()

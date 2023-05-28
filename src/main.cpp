@@ -37,7 +37,7 @@ Options ParametersCheck(int argc, char **argv)
     {
         if(string(argv[i]) == "-v")
         {
-            cout << "SLPD Version 1.1 " << endl<<"Build " << __TIME__ << ' ' << __DATE__
+            cout << "SLPD Version 1.1.1 " << endl<<"Build " << __TIME__ << ' ' << __DATE__
                  << endl;
             exit(0);
         }
