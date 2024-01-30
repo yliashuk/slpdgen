@@ -107,7 +107,7 @@ private:
                                             vector<Parameter> headerRemoteParam);
     vector<string> SetBodySetCbs();
     vector<string> SetBodyResetCbs();
-    vector<string> SetBodyLocaParamsStruct(vector<Parameter> params);
+    StructCpp::Fields LocaParamsStructFields(vector<Parameter> params);
     vector<string> SetBodyGetLocaParamsFun(vector<Parameter> params);
     string PrintClassText(string var);
     string PrintStructText(string var);

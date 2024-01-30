@@ -1,29 +1,46 @@
 #ifndef STRUCTCPP_H
 #define STRUCTCPP_H
-#include <string>
 #include <vector>
 #include "CommonCpp.h"
-using namespace std;
+#include "Utils/StringUtils.h"
 
 namespace CppConstructs
 {
-
     class StructCpp
     {
     public:
-        StructCpp();
-        StructCpp(string structName);
+        struct Field
+        {
+            string type;
+            string name;
+            string comment;
 
-        void SetName(string structName);
+            Field(const string& t, const string& n, const string& c = "")
+                : type(t), name(n), comment(c){}
+
+            Strings toStrings() const {
+                return {type, name, comment};
+            }
+        };
+
+        using Fields = std::vector<Field>;
+
+        StructCpp() = default;
+        StructCpp(const std::string& structName);
+        void SetTypeDef(bool state);
+
+        void SetName(const std::string& structName);
         string GetName() const;
 
-        void SetBody(vector<string> body);
+        void AddField(const Field& field);
+        void AddFields(const Fields& fields);
 
-        vector<string> GetDeclaration(bool hasTypeDef = true) const;
+        Strings Declaration() const;
 
     private:
+        bool _hasTypeDef = false;
         string _structName;
-        vector<string> _body;
+        Fields _fields;
     };
 }
 #endif // STRUCTCPP_H

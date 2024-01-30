@@ -9,14 +9,13 @@
 #include "CppConstructs/IfElseStatementCpp.h"
 #include "CppConstructs/FunctionCpp.h"
 #include "CppConstructs/ForLoopCpp.h"
-
+#include "Utils/StringUtils.h"
 #include "Polynomial.h"
 
 #include "DescriptionHelper.h"
 
 using namespace std;
 using namespace CppConstructs;
-
 
 struct EnumField
 {
@@ -49,15 +48,15 @@ public:
     string GetCodeName();
     string name;
     ComplexType blockType;
-    vector<StructField> fields;
+    vector<StructField> _fields;
     Polynomial Size();
     void addField(FieldDataStruct data,
                   pair<string, fieldType> type,
                   Polynomial fieldSize);
 
-    vector<string> PrintDecl();
+    vector<string> Declaration();
     vector<string>
-    PrintSerDesDeclaration(FunType type, bool hasStatic = true);
+    SerDesDefinition(FunType funType, bool hasStatic = true);
 
     string PrintSerDesCall(FunType type, string structName);
     string PrintSerCall();
@@ -81,9 +80,13 @@ private:
     string _pSer = "Ser_";
     string _pDes = "Des_";
 
-    string FieldMetaType(fieldType type);
+    string FieldTypePrefix(fieldType type);
 
     bool IsArrayVarLen(string name);
+
+    void SetSerDesDeclaration(Function& function, FunType type);
+    Strings SerArrayField(const StructField &field);
+
 };
 
 #endif // COMPLEXTYPEDESCRIPTION_H

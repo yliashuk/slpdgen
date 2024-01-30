@@ -1,7 +1,9 @@
 #include "FunctionCpp.h"
+#include "Utils/StringUtils.h"
 
 using CppConstructs::Function;
 using CppConstructs::Parameter;
+using namespace Utils;
 
 Function::Function(){}
 
@@ -46,7 +48,13 @@ string Function::GetFunctionName() const
     return  _functionName;
 }
 
-string Function::GetFunctionPointerDeclaration() const
+Parameter Function::FunctionPointer() const
+{
+    string parameterString = GetParametersString(ParameterStringType::DeclAndDef);
+    return {_returnType, fmt("(*%s)(%s)", {_functionName, parameterString})};
+}
+
+string Function::FunctionPointerDeclaration() const
 {
     string parameterString = GetParametersString(ParameterStringType::DeclAndDef);
     return _returnType + spc + lsb + "*" + _functionName + rsb + lsb  + parameterString + rsb + smcln;

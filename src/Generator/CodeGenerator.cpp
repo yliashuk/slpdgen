@@ -94,7 +94,7 @@ void CodeGenerator::Generate()
     }
 
     vector<Parameter> paramBuf;
-    for(auto var:_headerDeclarations.fields)
+    for(auto var:_headerDeclarations._fields)
     {
         if(var.data.isWithInitType && var.data.initType == "local") {
             _localVar.push_back({var.fieldName, var.fieldName});
@@ -108,7 +108,7 @@ void CodeGenerator::Generate()
 
     if(_qtOption || _qtCppOption)
     {
-        _localParams.SetBody(SetBodyLocaParamsStruct(paramBuf));
+        _localParams.AddFields(LocaParamsStructFields(paramBuf));
         _getLocalParamsFun.SetDeclaration("GetLocalParams", _localParams.GetName());
         _getLocalParamsFun.SetBody(SetBodyGetLocaParamsFun(paramBuf));
         _getLocalParamsFun.SetContainedClass(_fileName);
@@ -147,11 +147,12 @@ void CodeGenerator::Generate()
     _resetCbsFun.SetBody(SetBodyResetCbs());
 
     strings.clear();
-    for(auto var : paramBuf)
-        strings.push_back(var.type + spc + var.name + smcln);
 
-    strings.push_back(_cbsStruct.GetName() + " _CBsStruct" + smcln);
-    _protocolObj.SetBody(strings);
+    StructCpp::Fields protoObjFields;
+    for(auto var : paramBuf)
+        protoObjFields.push_back({var.type, var.name});
+    protoObjFields.push_back({_cbsStruct.GetName(), "_CBsStruct"});
+    _protocolObj.AddFields(protoObjFields);
 
     if(_qtOption || _qtCppOption) {
         GenerateSourceQt();
@@ -207,7 +208,7 @@ vector<string> CodeGenerator::MainDesFormat()
     strings.push_back("l_p += " + _headerDeclarations.Size().Get() + smcln);
     SwitchCpp switchOperator;
     string f, typeName;
-    for(auto var:_headerDeclarations.fields)
+    for(auto var:_headerDeclarations._fields)
     {
         if( var.type.first == _exchangeDescription.codeList.at(0).first)
            switchOperator.SetSwitchingParameter("header." + var.fieldName);
@@ -267,7 +268,7 @@ vector<string> CodeGenerator::MainDesFormat()
     };
 
     vector<string> specialParameterFromHeader, parameterBuffer;
-    for(auto var:_headerDeclarations.fields) {
+    for(auto var:_headerDeclarations._fields) {
         if(var.data.initType == "local" || var.data.initType == "remote")
             specialParameterFromHeader.push_back("header." + var.fieldName);
     }
@@ -368,7 +369,7 @@ vector<string> CodeGenerator::MainDesFormat()
             addCaseToSwitch(*var);
         }
     }
-    auto text = switchOperator.GetDeclaration();
+    auto text = switchOperator.Declaration();
     strings.insert(strings.end(),text.begin(),text.end());
     strings.push_back("return" + lsb + _errorEnum.GetPrefix() + _errorEnum.GetName() +
                       rsb +"0;");
@@ -435,16 +436,16 @@ StructCpp CodeGenerator::GenAddrDecl()
 {
     StructCpp decl;
     decl.SetName("Addr");
-    vector<string> body;
+    StructCpp::Fields fields;
 
     if((_qtOption || _qtCppOption) == false)
-        body.push_back("uint32_t ip;");
+        fields.push_back({"uint32_t", "ip"});
     else
-        body.push_back("QHostAddress ip;");
+        fields.push_back({"QHostAddress", "ip"});
 
-    body.push_back("uint16_t port;");
+    fields.push_back({"uint16_t", "port"});
 
-    decl.SetBody(body);
+    decl.AddFields(fields);
 
     if((_qtOption || _qtCppOption) == false)
         decl.SetName(_fileNameLowerCase + "_Addr");
@@ -568,7 +569,7 @@ void CodeGenerator::GenerateHeader()
     PrintToFile(_oStream,_errorEnum.PrintDecl(false));
 
     if(_addrOption)
-        PrintToFile(_oStream,GenAddrDecl().GetDeclaration());
+        PrintToFile(_oStream,GenAddrDecl().Declaration());
 
     _oStream<<endl;
 
@@ -577,7 +578,8 @@ void CodeGenerator::GenerateHeader()
     }
 
     for(auto var : _structDeclarations) {
-        PrintToFile(_oStream,var.PrintDecl());
+        PrintToFile(_oStream,var.Declaration());
+        _oStream << endl;
     }
 
     _oStream << "typedef struct " + _protocolObj.GetName() + spc + _typeObjName + smcln
@@ -585,19 +587,21 @@ void CodeGenerator::GenerateHeader()
 
     _oStream<<endl;
 
-    vector<string> CBsStructBody;
+    StructCpp::Fields CBsStructFields;
 
     for(auto var :interfaceReceiveFunctions) {
-        CBsStructBody.push_back(var.func.GetFunctionPointerDeclaration());
+        auto param = var.func.FunctionPointer();
+        CBsStructFields += {param.type, param.name};
     }
-    CBsStructBody.push_back(_cbSendFun.GetFunctionPointerDeclaration());
+    auto param = _cbSendFun.FunctionPointer();
+    CBsStructFields += {param.type, param.name};
 
-    _cbsStruct.SetBody(CBsStructBody);
-    PrintToFile(_oStream, _cbsStruct.GetDeclaration());
+    _cbsStruct.AddFields(CBsStructFields);
+    PrintToFile(_oStream, _cbsStruct.Declaration());
 
     _oStream << endl;
 
-    PrintToFile(_oStream, _protocolObj.GetDeclaration(false));
+    PrintToFile(_oStream, _protocolObj.Declaration());
 
     _oStream << endl;
 
@@ -639,12 +643,14 @@ void CodeGenerator::GenerateHeaderQt()
     PrintToFile(_oStream,_errorEnum.PrintDecl(false));
 
     if(_addrOption)
-        PrintToFile(_oStream,GenAddrDecl().GetDeclaration());
+        PrintToFile(_oStream,GenAddrDecl().Declaration());
 
     _oStream << endl;
 
-    if(!_localVar.empty())
-        PrintToFile(_oStream, _localParams.GetDeclaration());
+    if(!_localVar.empty()) {
+        _localParams.SetTypeDef(true);
+        PrintToFile(_oStream, _localParams.Declaration());
+    }
 
     _oStream << endl;
     for(auto var : _enumDeclarations) {
@@ -652,7 +658,8 @@ void CodeGenerator::GenerateHeaderQt()
     }
 
     for(auto var : _structDeclarations) {
-        PrintToFile(_oStream,var.PrintDecl());
+        PrintToFile(_oStream,var.Declaration());
+        _oStream << endl;
     }
 
     if(_qtCppOption)
@@ -718,12 +725,12 @@ void CodeGenerator::GenerateSource()
     _oStream << endl;
     PrintToFile(_oStream, _initFun.GetDefinition());
     _oStream << endl;
-    PrintToFile(_oStream, _headerDeclarations.PrintDecl());
-    PrintToFile(_oStream, _headerDeclarations.PrintSerDesDeclaration(FunType::Ser));
-    PrintToFile(_oStream, _headerDeclarations.PrintSerDesDeclaration(FunType::Des));
+    PrintToFile(_oStream, _headerDeclarations.Declaration());
+    PrintToFile(_oStream, _headerDeclarations.SerDesDefinition(FunType::Ser));
+    PrintToFile(_oStream, _headerDeclarations.SerDesDefinition(FunType::Des));
     for(auto var : _structDeclarations) {
-        PrintToFile(_oStream, var.PrintSerDesDeclaration(FunType::Ser));
-        PrintToFile(_oStream, var.PrintSerDesDeclaration(FunType::Des));
+        PrintToFile(_oStream, var.SerDesDefinition(FunType::Ser));
+        PrintToFile(_oStream, var.SerDesDefinition(FunType::Des));
         PrintToFile(_oStream, var.PrintSizeCalcFun(FunType::Ser));
         PrintToFile(_oStream, var.PrintSizeCalcFun(FunType::Des));
     }
@@ -764,8 +771,8 @@ void CodeGenerator::GenerateSourceQt()
         _oStream << endl;
     }
 
-    PrintToFile(_oStream, _headerDeclarations.PrintDecl());
-
+    PrintToFile(_oStream, _headerDeclarations.Declaration());
+    _oStream << endl;
     _oStream << "class Base: QObject" << endl << lb << endl;
     _oStream << "public:" << endl;
     _oStream << "Base(QObject *parent = nullptr):QObject(parent){}" << endl;
@@ -774,11 +781,11 @@ void CodeGenerator::GenerateSourceQt()
         PrintToFile(_oStream, PrintVarDeclaration("uint16_t", var.second));
 
     _oStream << endl;
-    PrintToFile(_oStream,_headerDeclarations.PrintSerDesDeclaration(FunType::Ser, false));
-    PrintToFile(_oStream,_headerDeclarations.PrintSerDesDeclaration(FunType::Des, false));
+    PrintToFile(_oStream,_headerDeclarations.SerDesDefinition(FunType::Ser, false));
+    PrintToFile(_oStream,_headerDeclarations.SerDesDefinition(FunType::Des, false));
     for(auto var : _structDeclarations) {
-        PrintToFile(_oStream,var.PrintSerDesDeclaration(FunType::Ser, false));
-        PrintToFile(_oStream,var.PrintSerDesDeclaration(FunType::Des, false));
+        PrintToFile(_oStream,var.SerDesDefinition(FunType::Ser, false));
+        PrintToFile(_oStream,var.SerDesDefinition(FunType::Des, false));
         PrintToFile(_oStream,var.PrintSizeCalcFun(FunType::Ser, false));
         PrintToFile(_oStream,var.PrintSizeCalcFun(FunType::Des, false));
     }
@@ -836,7 +843,7 @@ void CodeGenerator::AnalizeRules(vector<Rule> slpdRules,
 {
         string codeFieldName;
         vector<Parameter> specialParameter, specialParameterRemote;
-        for(auto var : header.fields)
+        for(auto var : header._fields)
         {
             if(var.data.initType == "local" || var.data.initType == "remote")
                 specialParameter.push_back({var.type.first, var.fieldName});
@@ -1059,7 +1066,7 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerVar, string 
     strings.push_back(_headerDeclarations.BlType() + b_und + _headerDeclarations.name +
                       spc + "header;");
 
-    for(auto var: _headerDeclarations.fields)
+    for(auto var: _headerDeclarations._fields)
     {
         if(var.type.first == _exchangeDescription.typeList.at(0).first)
         {
@@ -1076,7 +1083,7 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerVar, string 
 
     for(auto param: headerParameteres )
     {
-        for(auto var: _headerDeclarations.fields)
+        for(auto var: _headerDeclarations._fields)
         {
             if(var.fieldName == param.name) {
                 strings.push_back("header." +  var.fieldName + " = " + param.name +
@@ -1089,7 +1096,7 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerVar, string 
 
     for(auto param: _localVar)
     {
-        for(auto var: _headerDeclarations.fields)
+        for(auto var: _headerDeclarations._fields)
         {
             if(var.fieldName == param.first)
             {
@@ -1150,10 +1157,22 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerCommandVar,
                                                        vector<Parameter> headerRemoteParam)
 {
     vector<string> strings;
+
+    if(_qtCppOption)
+    {
+        for(auto field : packet._fields)
+        {
+            if(field.data.hasDynamicSize) {
+                strings.push_back("str->" + field.data.lenDefiningVar + " = str->" +
+                                  field.fieldName + ".size()" + smcln);
+            }
+        }
+    }
+
     strings.push_back(_headerDeclarations.BlType() + b_und + _headerDeclarations.name +
                       spc + "header;");
 
-    for(auto var: _headerDeclarations.fields)
+    for(auto var: _headerDeclarations._fields)
     {
         if(var.type.first == _exchangeDescription.typeList.at(0).first)
         {
@@ -1169,7 +1188,7 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerCommandVar,
 
     for(auto param: headerRemoteParam )
     {
-        for(auto var: _headerDeclarations.fields)
+        for(auto var: _headerDeclarations._fields)
             if(var.fieldName == param.name) {
                 strings.push_back("header." +  var.fieldName + " = "+ param.name +
                                   smcln);
@@ -1181,7 +1200,7 @@ vector<string> CodeGenerator::GetInterfaceSendFuncBody(string headerCommandVar,
 
     for(auto param: _localVar)
     {
-        for(auto var: _headerDeclarations.fields)
+        for(auto var: _headerDeclarations._fields)
         {
             if(var.fieldName == param.first)
             {
@@ -1261,13 +1280,13 @@ vector<string> CodeGenerator::SetBodyResetCbs()
     return  content;
 }
 
-vector<string> CodeGenerator::SetBodyLocaParamsStruct(vector<Parameter> params)
+StructCpp::Fields CodeGenerator::LocaParamsStructFields(vector<Parameter> params)
 {
-    vector<string> strings;
-    for (auto param : params)
-        strings.push_back(param.type + spc + param.name + smcln);
-
-    return strings;
+    StructCpp::Fields fields;
+    for (const auto& param : params) {
+        fields.push_back({param.type, param.name});
+    }
+    return fields;
 }
 
 vector<string> CodeGenerator::SetBodyGetLocaParamsFun(vector<Parameter> params)

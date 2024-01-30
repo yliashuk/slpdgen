@@ -1,4 +1,5 @@
 #include "ComplexTypeDescription.h"
+#include <Utils/StringUtils.h>
 
 ComplexTypeDescription::ComplexTypeDescription()
 {
@@ -27,7 +28,7 @@ string ComplexTypeDescription::GetCodeName()
 
 Polynomial ComplexTypeDescription::Size()
 {   Polynomial size = 0;
-    for(auto var: fields)
+    for(auto var: _fields)
         size += var.fieldSize;
     return size;
 }
@@ -43,7 +44,7 @@ void ComplexTypeDescription::addField(FieldDataStruct data,
     field.type.second = type.second;
 
     if(data.second.isArrayField) {
-        if(data.second.withLenDefiningVar) {
+        if(data.second.hasDynamicSize) {
             field.fieldSize = ("str->" + data.second.lenDefiningVar);
         } else {
             field.fieldSize =  data.second.value;
@@ -53,9 +54,9 @@ void ComplexTypeDescription::addField(FieldDataStruct data,
     else field.fieldSize = fieldSize;
 
     field.fieldOffset = Size();
-    fields.push_back(field);
+    _fields.push_back(field);
 
-    if(data.second.withLenDefiningVar)
+    if(data.second.hasDynamicSize)
     {
         this->hasDynamicFields = true;
         VarArray arr;
@@ -63,8 +64,8 @@ void ComplexTypeDescription::addField(FieldDataStruct data,
         arr.varArraySize = fieldSize;
         string str;
 
-        if(!FieldMetaType(type.second).empty())
-            str = FieldMetaType(type.second) + b_und;
+        if(!FieldTypePrefix(type.second).empty())
+            str = FieldTypePrefix(type.second) + b_und;
 
         arr.varArrayTypeName = str + type.first;
         arr.varArrayLen = data.second.lenDefiningVar;
@@ -72,197 +73,143 @@ void ComplexTypeDescription::addField(FieldDataStruct data,
     }
 }
 
-vector<string> ComplexTypeDescription::PrintDecl()
+vector<string> ComplexTypeDescription::Declaration()
 {
-    vector<string> strings;
-    auto BlockName =  BlType() + b_und + name;
+    auto blockName = BlType() + b_und + name;
+    StructCpp structCpp;
+    structCpp.SetName(blockName);
+    structCpp.SetTypeDef(!qtCppOption);
 
-    if(qtCppOption)
-        strings.push_back("struct " + BlockName);
-    else
-        strings.push_back("typedef struct");
-
-    strings.push_back(lb);
-    for(auto var:fields)
+    StructCpp::Fields fields;
+    for(auto var:_fields)
     {
-        string p, e, s, qtCppNotUsedComment;
-        if(var.data.withLenDefiningVar) {
-            p = "*";
-            s = " //" + var.fieldName + PutInSqBraces(var.data.lenDefiningVar);
-        }
-        else if(var.data.isArrayField)
-            e = PutInSqBraces(to_string(var.data.value));
+        string dynSizeVar = var.data.lenDefiningVar;
+        string fieldName = var.fieldName;
+        string type = var.type.first;
 
-        if(qtCppOption) {
-            for(auto a:fields) {
-                if(a.data.lenDefiningVar == var.fieldName)
-                    qtCppNotUsedComment = " // not used";
-            }
+        bool isArray = var.data.isArrayField;
+        bool isDynamicArray = isArray && var.data.hasDynamicSize;
+        bool isStaticArray = isArray && !isDynamicArray;
+        bool isArrayVarLen = IsArrayVarLen(fieldName);
+
+
+        bool isNotUsedVarLen = qtCppOption && isArrayVarLen;
+        bool isPointerToArr = !qtCppOption && isDynamicArray;
+
+        string comment = {};
+        if(isNotUsedVarLen || isPointerToArr)
+        {
+            string helpComm = fmt("%s[%s]", {fieldName, dynSizeVar});
+            string notUsedComm = "not used";
+            comment = isNotUsedVarLen ? notUsedComm : helpComm;
         }
 
-        if(qtCppOption && var.data.withLenDefiningVar)
+        string typePrefix = FieldTypePrefix(var.type.second);
+        bool isStd = var.type.second == fieldType::std;
+
+        string fieldT = isStd ? type : typePrefix + "_" + type;
+        string len = to_string(var.data.value);
+
+        if(qtCppOption && isDynamicArray)
         {
-            if(var.type.second == fieldType::std) {
-                strings.push_back(tab + "std::vector<" + var.type.first +">" +
-                                  spc + var.fieldName + smcln);
-            }
-            else
-            {
-                strings.push_back(tab + "std::vector<" +
-                                  FieldMetaType(var.type.second) + b_und +
-                                  var.type.first + ">"+ spc + var.fieldName + smcln);
-            }
+            fields += {fmt("std::vector<%s>", {fieldT}), fieldName};
         }
-        else if(qtCppOption && var.data.isArrayField)
+        else if(qtCppOption && isStaticArray)
         {
-            auto customType = FieldMetaType(var.type.second) + b_und + var.type.first;
-            auto arary_type = (var.type.second == fieldType::std) ?
-                        var.type.first : customType;
-            strings.push_back(tab + "std::array<" + arary_type + ", " +
-                              to_string(var.data.value) + ">" + spc + var.fieldName +
-                              smcln);
+            fields += {fmt("std::array<%s, %s>", {fieldT, len}), fieldName};
         }
-        else if(var.type.second == fieldType::std) {
-            strings.push_back(tab + var.type.first + spc + p + var.fieldName + e +
-                              smcln + s + qtCppNotUsedComment);
-        } else {
-            strings.push_back(tab + FieldMetaType(var.type.second)+ b_und +
-                              var.type.first + spc + p + var.fieldName + e + smcln + s +
-                              qtCppNotUsedComment);
+        else
+        {
+            string p = isDynamicArray ? "*" : "";
+            string var = isStaticArray ? fmt("%s[%s]", {fieldName, len}) : fieldName;
+            fields += {fieldT, p + var, comment};
         }
     }
 
-    if(!qtCppOption)
-        strings.push_back(rb + BlockName + smcln);
-    else
-        strings.push_back(rb + smcln);
-
-    strings.push_back(es);
-    return strings;
+    structCpp.AddFields(fields);
+    return structCpp.Declaration();
 }
 
-vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
-                                                              bool hasStatic)
+vector<string> ComplexTypeDescription::SerDesDefinition(FunType funType, bool hasStatic)
 {
-    auto BlockName =  BlType() + b_und + name;
-    vector<string> strings, funcBody;
+    auto blockName =  BlType() + b_und + name;
+    Strings strings, funcBody;
+
     Function funConstruct;
-    funConstruct.SetStaticDeclaration(true);
+    funConstruct.SetStaticDeclaration(hasStatic);
 
-    string preStatic;
-    if(hasStatic)
-        preStatic = "static ";
+    funcBody += "uint32_t size = 0;";
 
-    funcBody.push_back("uint32_t size = 0" + smcln);
+    SetSerDesDeclaration(funConstruct, funType);
 
-    if(type == Ser)
+    if(funType == Des)
     {
-        vector<Parameter> params;
-        params.push_back({"char*", "p"});
-        params.push_back({BlockName, "*str"});
-        funConstruct.SetDeclaration(_pSer + BlType() + b_und + name,preStatic + "uint32_t",
-                                    params);
-    }
-    else
-    {
-        vector<Parameter> params;
-        if(blockType == ComplexType::Header && !qtOption)
-            params.push_back({cObjType + "*", "obj"});
-
-        params.push_back({"char*", "p"});
-        params.push_back({BlockName, "*str"});
-        params.push_back({"uint8_t*", "op_status"});
-        funConstruct.SetDeclaration(_pDes + BlType() + b_und + name,preStatic + "uint32_t",
-                                    params);
-    }
-
-    if(type == Des)
-    {
+        //funcBody.push_back(PrintVarDeclaration(BlockName,"str"));
         IfElseStatementCpp statement;
         statement.AddCase("*op_status == 0", "return size" + smcln);
         auto var = statement.GetDefinition();
         funcBody.insert(funcBody.end(), var.begin(), var.end());
     }
+
     //string addOffS, addOffD;
-    for(auto var = fields.begin(); var !=fields.end(); var++)
+    for(auto var = _fields.begin(); var !=_fields.end(); var++)
     {
+        bool isArray = var->data.isArrayField;
+        bool isDynamicArray = var->data.hasDynamicSize;
+        bool isStaticArray = !isDynamicArray && isArray;
+
+        String fieldSize = var->fieldSize.Get();
+        String arrayElementSize = var->arrayTypeSize.Get();
+
+        String type = var->type.first;
+        String fieldName = var->fieldName;
+        String value = to_string(var->data.value);
+
         if(var->type.second != fieldType::Struct)
         {
-            if(type == Ser)
+            if(funType == Ser)
             {
-                if(var->data.isArrayField)
-                {                    
-                    ForLoopCpp loop;
-                    vector<string> body;
-
-                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
-                                        " / " + var->baseTypeSize.Get()*/ ,"i++");
-
-                    body.push_back(PrintMemcpy(string("p + size"),
-                                               string("&str->") + var->fieldName +
-                                               PutInSqBraces("i"),
-                                               var->arrayTypeSize.Get()));
-                    body.push_back("size += " + var->arrayTypeSize.Get() + smcln);
-                    loop.SetBody(body);
-
-
-                    auto def = loop.GetDefinition();
-                    funcBody.insert(funcBody.end(),def.begin(),def.end());
+                if(isArray)
+                {
+                    funcBody += SerArrayField(*var);
                 }
                 else
                 {
-                    if(var->data.defaultValue)
-                        funcBody.push_back(PrintVarDefinition("str->" +
-                                                              var->fieldName,
-                                                              to_string(var->data.value)));
-                    funcBody.push_back(PrintMemcpy(string("p + size"),
-                                                   string("&str->")+var->fieldName,
-                                                   var->fieldSize.Get()));
-                    funcBody.push_back("size += " + var->fieldSize.Get() + smcln);
+                    if(var->data.initValue) {
+                        funcBody += fmt("str->%s = %s;", {fieldName, value});
+                    }
+                    string copyFmt = "memcpy(p + size, &str->%s, %s);";
+                    funcBody += fmt(copyFmt, {fieldName, fieldSize});
+                    funcBody += fmt("size += %s;", {fieldSize});
                 }
-            }
-            else
+            } else if(funType == Des)
             {
-                if(var->data.isArrayField)
+                auto typePrefix = FieldTypePrefix(var->type.second);
+                if(isArray)
                 {
                     ForLoopCpp loop;
-                    vector<string> body;
+                    Strings body;
 
-                    if(qtCppOption && var->data.withLenDefiningVar)
-                    {
-                        funcBody.push_back(string("str->") + var->fieldName +
-                                           ".resize" + "(str->" +
-                                           var->data.lenDefiningVar + ")" + smcln);
+                    if(qtCppOption && isDynamicArray) {
+                        funcBody += fmt("str->%s.resize(str->$s);", {fieldName, fieldSize});
                     }
-                    else if(var->data.withLenDefiningVar)
+                    else if(isDynamicArray)
                     {
-                        string numOfElements = var->data.lenDefiningVar;
+                        String elementType = fmt("%{%s_}%s",{typePrefix, var->type.first});
 
-                        string typePrefix = FieldMetaType(var->type.second);
-                        if(typePrefix.size() > 0) typePrefix += b_und;
-
-                        string elementType = typePrefix + var->type.first;
-                        string elementSize = PrintSizeOf(elementType);
-                        string typeConvers = "(" + elementType + "*)";
-
-                        funcBody.push_back(string("str->") + var->fieldName +
-                                           " =" + typeConvers + "allocate" + "(str->" +
-                                           numOfElements + "*" + elementSize + ")" + smcln);
+                        String allocFmt = "str->%s =(%s*)allocate(%s*sizeof(%s));";
+                        Strings allocFmtArgs = {fieldName, elementType, fieldSize, elementType};
+                        funcBody += fmt(allocFmt, allocFmtArgs);
                     }
 
-                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
-                                        " / " + var->baseTypeSize.Get()*/,"i++");
+                    loop.SetDeclaration("int i = 0","i < " + fieldSize, "i++");
+                    string copyFmt = "memcpy(&str->%s[i], p + size, %s);";
 
-                    body.push_back(PrintMemcpy(string("&str->") + var->fieldName +
-                                               PutInSqBraces("i"),
-                                               string("p + size"),
-                                               var->arrayTypeSize.Get()));
-                    body.push_back("size += " + var->arrayTypeSize.Get() + smcln);
+                    body += fmt(copyFmt, {fieldName, arrayElementSize});
+                    body += fmt("size += %s;", {arrayElementSize});
+
                     loop.SetBody(body);
-
-                    auto var = loop.GetDefinition();
-                    funcBody.insert(funcBody.end(),var.begin(),var.end());
-
+                    funcBody += loop.GetDefinition();
                 }
                 else
                 {
@@ -270,16 +217,14 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                             var->type.second == fieldType::Type ||
                             var->type.second == fieldType::Code)
                     {
-                        funcBody.push_back(string("str->")+var->fieldName + " =" +
-                                           lsb + FieldMetaType(var->type.second) +
-                                           "_" + var->type.first + rsb + "0" + smcln);
+                        funcBody += fmt("str->%s =(%s_%s)0;", {fieldName, typePrefix, type});
                     }
 
-                    funcBody.push_back(PrintMemcpy(string("&str->") + var->fieldName,
-                                                   string("p + size"),
-                                                   var->fieldSize.Get()));
-                    funcBody.push_back("size += " + var->fieldSize.Get() + smcln);
-                    if(var->data.defaultValue)
+                    string copyFmt = "memcpy(&str->%s, p + size, %s);";
+                    funcBody += fmt(copyFmt, {fieldName, fieldSize});
+                    funcBody += fmt("size += %s;", {fieldSize});
+
+                    if(var->data.initValue)
                     {
                         IfElseStatementCpp statement;
                         statement.AddCase("str->" + var->fieldName + neql +
@@ -308,50 +253,39 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                     }
                 }
             }
-        }else
+        }else if(var->type.second == fieldType::Struct)
         {
             Function localFunc;
-            if(type == Ser)
+            if(funType == Ser)
             {
-                if(var->data.isArrayField)
+                if(isArray)
                 {
-                    ForLoopCpp loop;
-
-                    loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
-                                        " / " + var->baseTypeSize.Get()*/,"i++");
-                    loop.SetBody("size += " + _pSer + FieldMetaType(var->type.second) + b_und +
-                                 var->type.first + lsb + string("p + size")  +
-                                 com + "&str->" + var->fieldName + PutInSqBraces("i") +
-                                 rsb + smcln);
-
-                    auto var = loop.GetDefinition();
-                    funcBody.insert(funcBody.end(), var.begin(), var.end());
-
+                    funcBody += SerArrayField(*var);
                 }
                 else
                 {
-                    funcBody.push_back("size += " + _pSer + FieldMetaType(var->type.second) +
+                    funcBody.push_back("size += " + _pSer + FieldTypePrefix(var->type.second) +
                                        b_und + var->type.first + lsb +
                                        string("p + size") +
                                        com + "&str->" + var->fieldName + rsb + smcln);
                 }
             }
-            else
+            else if(funType == Des)
             {
                 if(var->data.isArrayField)
                 {
                     ForLoopCpp loop;
 
-                    if(qtCppOption && var->data.withLenDefiningVar)
+                    if(qtCppOption && var->data.hasDynamicSize)
                     {
                         funcBody.push_back(string("str->") + var->fieldName +
                                            ".resize" + "(str->" +
                                            var->data.lenDefiningVar + ")" + smcln);
                     }
-                    else if(var->data.withLenDefiningVar)
+                    else if(var->data.hasDynamicSize)
                     {
                         string numOfElements = var->data.lenDefiningVar;
-                        string typePrefix = FieldMetaType(var->type.second);
+                        string typePrefix = FieldTypePrefix(var->type.second);
                         string elementType = typePrefix + b_und + var->type.first;
                         string elementSize = PrintSizeOf(elementType);
                         string typeConvers = "(" + elementType + "*)";
@@ -363,7 +297,7 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
 
                     loop.SetDeclaration("int i = 0","i < " + var->fieldSize.Get() /*+
                                         " / " + var->baseTypeSize.Get()*/,"i++");
-                    loop.SetBody("size += " + _pDes + FieldMetaType(var->type.second) + b_und +
+                    loop.SetBody("size += " + _pDes + FieldTypePrefix(var->type.second) + b_und +
                                  var->type.first + lsb +
                                  string("p + size") +
                                  com + "&str->" + var->fieldName +
@@ -374,7 +308,7 @@ vector<string> ComplexTypeDescription::PrintSerDesDeclaration(FunType type,
                     funcBody.insert(funcBody.end(),var.begin(),var.end());
 
                 }else
-                funcBody.push_back("size += " + _pDes + FieldMetaType(var->type.second) +
+                funcBody.push_back("size += " + _pDes + FieldTypePrefix(var->type.second) +
                                    b_und +var->type.first + lsb +
                                    string("p + size") +
                                    com + string("&str->")+var->fieldName + com +
@@ -466,12 +400,12 @@ vector<string> ComplexTypeDescription::PrintSizeCalcFun(FunType type, bool hasSt
         body.push_back("c_size_t c_size = "  + initVal + smcln);
     }
 
-    for(auto field : fields)
+    for(auto field : _fields)
     {
-        string prefix = FieldMetaType(field.type.second) + b_und;
+        string prefix = FieldTypePrefix(field.type.second) + b_und;
         fieldType fldType = field.type.second;
         bool isArray  = field.data.isArrayField;
-        bool isDynamicArray = field.data.withLenDefiningVar;
+        bool isDynamicArray = field.data.hasDynamicSize;
 
         if(fldType != fieldType::Struct)
         {
@@ -529,7 +463,7 @@ void ComplexTypeDescription::SetPrefix(string prefix)
     _prefix = prefix + b_und;
 }
 
-string ComplexTypeDescription::FieldMetaType(fieldType type)
+string ComplexTypeDescription::FieldTypePrefix(fieldType type)
 {
     switch (type)
     {
@@ -553,6 +487,54 @@ bool ComplexTypeDescription::IsArrayVarLen(string name)
     return false;
 }
 
+void ComplexTypeDescription::SetSerDesDeclaration(Function &function, FunType type)
+{
+    auto blockName =  BlType() + b_und + name;
+
+    vector<Parameter> params;
+    params.push_back({"char*", "p"});
+    params.push_back({blockName, "*str"});
+
+    if(type == Des)
+    {
+        if(blockType == ComplexType::Header && !qtOption) {
+            params.push_back({cObjType + "*", "obj"});
+        }
+        params.push_back({"uint8_t*", "op_status"});
+    }
+    String serDesPrefix = type == Ser ? _pSer : _pDes;
+    function.SetDeclaration(serDesPrefix + blockName,"uint32_t", params);
+}
+
+Strings ComplexTypeDescription::SerArrayField(const StructField& field)
+{
+    const String& fieldSize = field.fieldSize.Get();
+    const String& fieldName = field.fieldName;
+    const String& elementSize = field.arrayTypeSize.Get();
+    auto metaType = field.type.second;
+    Strings loopBody;
+
+    if(metaType != fieldType::Struct)
+    {
+        string copyFmt = "memcpy(p + size, &str->%s[i], %s);";
+
+        loopBody += fmt(copyFmt, {fieldName, elementSize});
+        loopBody += fmt("size += %s;",{elementSize});
+
+    } else if(metaType == fieldType::Struct)
+    {
+        String type = field.type.first;
+        type = fmt("%s%s_%s",{_pSer, FieldTypePrefix(metaType), type});
+        loopBody += fmt("size += %s(p + size, &str->%s[i]);", {type, fieldName});
+    }
+
+    ForLoopCpp loop;
+    loop.SetDeclaration("int i = 0","i < " + fieldSize, "i++");
+    loop.SetBody(loopBody);
+
+    return loop.GetDefinition();
+}
+
 Function ComplexTypeDescription::GetCompareFun()
 {
     Function fun;
@@ -567,7 +549,7 @@ Function ComplexTypeDescription::GetCompareFun()
     vector<string> body;
 
     IfElseStatementCpp statement;
-    for(const auto& field : fields)
+    for(const auto& field : _fields)
     {
         statement.AddCase(lsb + "obj1." + field.fieldName + eql + "obj2." +
                           field.fieldName + rsb + eql + "false",  "return false" +

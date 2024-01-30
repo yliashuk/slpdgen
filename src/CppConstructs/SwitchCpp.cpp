@@ -14,7 +14,7 @@ void SwitchCpp::AddCase(string switchValue, vector<string> content)
     this->_switchContent.push_back({switchValue,content});
 }
 
-vector<string> SwitchCpp::GetDeclaration() const
+vector<string> SwitchCpp::Declaration() const
 {
    vector<string> content;
    if(this->_switchContent.empty()) return content;

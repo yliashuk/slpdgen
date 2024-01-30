@@ -67,10 +67,10 @@ struct FieldData
     FieldData(FieldInfo data, bool isStdType)
         :isStdType(isStdType),
          isArrayField(data.isNumOfCeils),
-         withLenDefiningVar(data.withLenDefiningVar),
+         hasDynamicSize(data.withLenDefiningVar),
          lenDefiningVar(data.lenDefiningVar),
          type(data.type),
-         defaultValue(data.defaultValue),
+         initValue(data.defaultValue),
          valueRange(data.valueRange),
          value(data.defaultVal),
          min(data.fromVal),
@@ -84,10 +84,10 @@ struct FieldData
 
     bool   isStdType    = false;
     bool   isArrayField = false;
-    bool   withLenDefiningVar = false;
+    bool   hasDynamicSize = false;
     string lenDefiningVar;
     string type;
-    bool defaultValue   = false;
+    bool initValue   = false;
     bool valueRange     = false;
     uint64_t value;     // defaultValue = true valueRange = false
     uint64_t min;       // defaultValue = true valueRange = true

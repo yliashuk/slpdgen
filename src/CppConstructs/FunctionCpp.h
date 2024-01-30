@@ -27,7 +27,8 @@ namespace CppConstructs
 
         string GetFunctionName() const;
 
-        string GetFunctionPointerDeclaration() const;
+        Parameter FunctionPointer() const;
+        string FunctionPointerDeclaration() const;
 
         vector<string> GetDefinition() const;
 

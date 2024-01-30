@@ -1,6 +1,6 @@
 #include "DescriptionHelper.h"
 
-strings DescHelper::CalcSizeLoop(string typePrefix, StructField field,
+Strings DescHelper::CalcSizeLoop(string typePrefix, StructField field,
                                  FunType type)
 {
     ForLoopCpp loop = CalcSizeLoopDecl(field, type);
@@ -8,7 +8,7 @@ strings DescHelper::CalcSizeLoop(string typePrefix, StructField field,
     return loop.GetDefinition();
 }
 
-strings
+Strings
 DescHelper::CalcStructSize(string typePrefix, StructField field,
                            FunType type, bool isInLoop)
 {
@@ -101,19 +101,22 @@ Function DescHelper::CalcSizeFunDecl(string name, FunType type, bool hasStatic)
     return fun;
 }
 
-strings DescHelper::CSizeDef()
+Strings DescHelper::CSizeDef()
 {
-    strings body;
+    Strings body;
 
-    body.push_back("size_t s; // static part");
-    body.push_back("size_t d; // dynamic part");
-    body.push_back("size_t r; // size in raw memory");
+    StructCpp::Fields fields {
+        {"size_t", "s", "static part"},
+        {"size_t", "d", "dynamic part"},
+        {"size_t", "r", "size in raw memory"}
+    };
 
     StructCpp str;
     str.SetName("c_size_t");
-    str.SetBody(body);
+    str.SetTypeDef(true);
+    str.AddFields(fields);
 
-    return str.GetDeclaration();
+    return str.Declaration();
 }
 
 ForLoopCpp DescHelper::CalcSizeLoopDecl(StructField field, FunType type)
@@ -131,7 +134,7 @@ ForLoopCpp DescHelper::CalcSizeLoopDecl(StructField field, FunType type)
 vector<string> DescHelper::AccumulateSize(StructField field)
 {
     vector<string> body;
-    if(field.data.withLenDefiningVar)
+    if(field.data.hasDynamicSize)
     {
         AppendStrings(body, {"c_size.d += c_tmp_size.s" + smcln});
     }
@@ -143,7 +146,7 @@ vector<string> DescHelper::AccumulateSize(StructField field)
 
 string DescHelper::FieldSize(StructField field, FunType type)
 {
-    bool isDynamic = field.data.withLenDefiningVar;
+    bool isDynamic = field.data.hasDynamicSize;
 
     // write the fix size for static array field or var names for dynamic
     auto size = isDynamic ? field.data.lenDefiningVar : field.fieldSize.Get();

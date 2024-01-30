@@ -1,5 +1,5 @@
 TEMPLATE = app
-CONFIG += console c++11
+CONFIG += console c++14
 CONFIG -= app_bundle
 CONFIG -= qt
 #include(src/Analyzer/Analyzer.pri)
@@ -46,6 +46,7 @@ QMAKE_EXTRA_COMPILERS += bisonheader
 # Project source code
 
 HEADERS += \
+    src/Utils/StringUtils.h \
     src/Analyzer/Analyzer.h \
     src/Analyzer/Formater.h \
     src/Analyzer/Generics.h \
@@ -64,6 +65,7 @@ HEADERS += \
     src/Generator/Polynomial.h
 
 SOURCES += \
+    src/Utils/StringUtils.cpp \
     src/Analyzer/Formater.cpp \
     src/Analyzer/StructFieldData.cpp \
     src/CppConstructs/CommonCpp.cpp \

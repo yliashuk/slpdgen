@@ -16,7 +16,7 @@ namespace CppConstructs
 
         void AddCase(string switchValue, vector<string> content);
 
-        vector<string> GetDeclaration() const;
+        vector<string> Declaration() const;
 
     private:
         string _switchingParameter;
