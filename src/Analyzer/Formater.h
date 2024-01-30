@@ -2,10 +2,12 @@
 #define FORMATER_H
 
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 #include "StructFieldData.h"
 #include "Generics.h"
+#include "Rule.h"
 
 using namespace std;
 
@@ -15,62 +17,16 @@ struct ComplexStatus
     string wrongName;
 };
 
-struct Rule
-{
-    Rule(string* Command, string* SendType, string* SendPacket, string* ResponseType,
-         string* ResponsePacket, bool isReverse = false)
-    {
-        if(Command != nullptr)
-            this->command = *Command;
-
-        if(SendType != nullptr)
-            this->sendType = *SendType;
-
-        if(SendPacket != nullptr){
-            this->sendPacket = *SendPacket;
-            this->isEmptySend = false;
-        }
-        else
-            this->isEmptySend = true;
-
-        if(ResponseType != nullptr){
-            this->responseType = *ResponseType;
-            this->isWithResponse = true;
-        }
-        else
-            this->isWithResponse = false;
-
-        if(ResponsePacket != nullptr){
-            this->responsePacket = *ResponsePacket;
-            this->isEmptyResponse = false;
-        }
-        else
-            this->isEmptyResponse = true;
-
-        this->isReverse = isReverse;
-    }
-
-    string command;
-    string sendType;
-    string sendPacket;
-    bool isEmptySend;
-    bool isWithResponse;
-    bool isEmptyResponse;
-    string responseType;
-    string responsePacket;
-    bool isReverse;
-};
-
 struct FieldData
 {
     FieldData(){}
     FieldData(FieldInfo data, bool isStdType)
         :isStdType(isStdType),
          isArrayField(data.isNumOfCeils),
-         withLenDefiningVar(data.withLenDefiningVar),
+         hasDynamicSize(data.withLenDefiningVar),
          lenDefiningVar(data.lenDefiningVar),
          type(data.type),
-         defaultValue(data.defaultValue),
+         hasInitValue(data.defaultValue),
          valueRange(data.valueRange),
          value(data.defaultVal),
          min(data.fromVal),
@@ -84,10 +40,10 @@ struct FieldData
 
     bool   isStdType    = false;
     bool   isArrayField = false;
-    bool   withLenDefiningVar = false;
+    bool   hasDynamicSize = false;
     string lenDefiningVar;
     string type;
-    bool defaultValue   = false;
+    bool hasInitValue   = false;
     bool valueRange     = false;
     uint64_t value;     // defaultValue = true valueRange = false
     uint64_t min;       // defaultValue = true valueRange = true
@@ -111,18 +67,14 @@ public:
     ComplexStatus AddStructDeclaration(DataStructType strTp, string structName);
     ComplexStatus AddStructField(DataStructType strTp, string currBlockName,
                                  FieldInfo dataStruct);
-    ComplexStatus AddRule(string* command = nullptr, string* sendType = nullptr,
-                          string* sendPacket = nullptr, string* responseType = nullptr,
-                          string* responsePacket = nullptr, bool isReverse = false);
+    ComplexStatus AddRule(Rule rule, bool hasReverse = false);
 
     vector<Enum> enumList, codeList, typeList;
     vector<Struct> structList, packetList ,headerList;
     vector<Rule> rules;
 
 private:
-    ComplexStatus RuleCheck(string* command = nullptr, string* sendType = nullptr,
-                            string* sendPacket = nullptr, string* responseType = nullptr,
-                            string* responsePacket = nullptr);
+    ComplexStatus RuleCheck(Rule rule);
 
     Status AddStructToList(vector<Struct>& list, string structName);
 

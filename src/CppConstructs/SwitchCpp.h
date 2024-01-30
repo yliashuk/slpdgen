@@ -2,7 +2,7 @@
 #define SWITCHOPERATOR_H
 #include <string>
 #include <vector>
-#include "CommonCpp.h"
+
 using namespace std;
 
 namespace CppConstructs
@@ -16,7 +16,7 @@ namespace CppConstructs
 
         void AddCase(string switchValue, vector<string> content);
 
-        vector<string> GetDeclaration() const;
+        vector<string> Declaration() const;
 
     private:
         string _switchingParameter;

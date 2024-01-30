@@ -5,9 +5,8 @@
 #include <algorithm>
 #include <vector>
 #include "Analyzer/Formater.h"
-#include "CppConstructs/CommonCpp.h"
+
 using namespace std;
-using namespace CppConstructs;
 
 enum class EnumerableType
 {
@@ -20,14 +19,21 @@ class EnumDescription
 {
 public:
     EnumerableType type;
+
     EnumDescription();
-    size_t Size();
-    vector<string> PrintDecl(bool withEnumText = true);
+
     void SetName(string name);
     string GetName() const;
-    vector<FieldDataEnum> fields;
+
     void SetPrefix(string prefix);
     string GetPrefix();
+
+    size_t Size();
+
+    vector<string> Declaration(bool withEnumText = true);
+
+    vector<FieldDataEnum> fields;
+
 private:
     string name;
     string _prefix;

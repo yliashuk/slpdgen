@@ -1,5 +1,5 @@
 TEMPLATE = app
-CONFIG += console c++11
+CONFIG += console c++17
 CONFIG -= app_bundle
 CONFIG -= qt
 #include(src/Analyzer/Analyzer.pri)
@@ -46,35 +46,44 @@ QMAKE_EXTRA_COMPILERS += bisonheader
 # Project source code
 
 HEADERS += \
+    src/Analyzer/Rule.h \
+    src/Generator/CalcSizeHelper.h \
+    src/Generator/CodeGenerator.h \
+    src/Generator/MsgHandlerGen.h \
+    src/Generator/RulesDefinedMessage.h \
+    src/Utils/ContainerUtils.h \
+    src/Utils/StringUtils.h \
     src/Analyzer/Analyzer.h \
     src/Analyzer/Formater.h \
     src/Analyzer/Generics.h \
     src/Analyzer/StructFieldData.h \
-    src/CppConstructs/CommonCpp.h \
     src/CppConstructs/ForLoopCpp.h \
     src/CppConstructs/FunctionCpp.h \
     src/CppConstructs/IfElseStatementCpp.h \
     src/CppConstructs/StructCpp.h \
     src/CppConstructs/SwitchCpp.h \
-    src/Generator/CodeGenerator.h \
     src/Generator/ComplexTypeDescription.h \
-    src/Generator/DescriptionHelper.h \
     src/Generator/EnumDescription.h \
     src/Generator/Generics.h \
-    src/Generator/Polynomial.h
+    src/Generator/Polynomial.h \
+    src/AppOptions.h \
+    src/VersionInfo.h
 
 SOURCES += \
+    src/Analyzer/Rule.cpp \
+    src/Generator/CalcSizeHelper.cpp \
+    src/Generator/CodeGenerator.cpp \
+    src/Generator/MsgHandlerGen.cpp \
+    src/Generator/RulesDefinedMessage.cpp \
+    src/Utils/StringUtils.cpp \
     src/Analyzer/Formater.cpp \
     src/Analyzer/StructFieldData.cpp \
-    src/CppConstructs/CommonCpp.cpp \
     src/CppConstructs/ForLoopCpp.cpp \
     src/CppConstructs/FunctionCpp.cpp \
     src/CppConstructs/IfElseStatementCpp.cpp \
     src/CppConstructs/StructCpp.cpp \
     src/CppConstructs/SwitchCpp.cpp \
-    src/Generator/CodeGenerator.cpp \
     src/Generator/ComplexTypeDescription.cpp \
-    src/Generator/DescriptionHelper.cpp \
     src/Generator/EnumDescription.cpp \
     src/Generator/Polynomial.cpp \
     src/main.cpp

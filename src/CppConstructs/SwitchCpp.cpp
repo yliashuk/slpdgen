@@ -1,4 +1,5 @@
 #include "SwitchCpp.h"
+#include "Utils/StringUtils.h"
 
 using CppConstructs::SwitchCpp;
 
@@ -11,26 +12,22 @@ void SwitchCpp::SetSwitchingParameter(string parameter)
 
 void SwitchCpp::AddCase(string switchValue, vector<string> content)
 {
-    this->_switchContent.push_back({switchValue,content});
+    this->_switchContent.push_back({switchValue, content});
 }
 
-vector<string> SwitchCpp::GetDeclaration() const
+vector<string> SwitchCpp::Declaration() const
 {
+    if(this->_switchContent.empty()){ return {}; }
+
    vector<string> content;
-   if(this->_switchContent.empty()) return content;
-   content.push_back("switch" + lsb + _switchingParameter + rsb);
-   content.push_back(lb);
+
+   content << fmt("switch(%s)\n\t{", {_switchingParameter});
    for(const auto &var: _switchContent)
    {
-        content.push_back(tab + "case" + spc + var.first + cln);
-        content.push_back(tab +lb);
-        for(const auto &string: var.second)
-        {
-            content.push_back(tab2 + string);
-        }
-        content.push_back(tab2 + "break" + smcln);
-        content.push_back(tab +rb);
+       content << fmt("\tcase %s:\n\t\t{", {var.first}) <<
+                  fmt("\t\t%s", _d(var.second)) <<
+                  "\t\tbreak;\n\t\t}";
    }
-   content.push_back(rb);
+   content << "}";
    return content;
 }

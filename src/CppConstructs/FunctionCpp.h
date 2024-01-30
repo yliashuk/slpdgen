@@ -2,7 +2,7 @@
 #define FUNCTIONCPP_H
 #include <string>
 #include <vector>
-#include "CommonCpp.h"
+
 using namespace std;
 
 namespace CppConstructs
@@ -25,11 +25,12 @@ namespace CppConstructs
         void SetExternDeclaration(bool enable);
         void SetStaticDeclaration(bool enable);
 
-        string GetFunctionName() const;
+        string FunctionName() const;
 
-        string GetFunctionPointerDeclaration() const;
+        Parameter FunctionPointer() const;
+        string FunctionPointerDeclaration() const;
 
-        vector<string> GetDefinition() const;
+        vector<string> Definition() const;
 
         string GetCall(vector<string> argumentNames, bool isPointer) const;
         string GetCall(vector<Parameter> argumentNames) const;
@@ -39,7 +40,7 @@ namespace CppConstructs
 
         void SetBody(vector<string> body);
 
-        string GetDeclaration() const;
+        string Declaration() const;
 
         void SetContainedClass(string name);
         void ResetContainedClass();
@@ -48,11 +49,12 @@ namespace CppConstructs
          enum class ParameterStringType {Call, DeclAndDef};
          enum class SignatureType {Decl, Def};
 
-        bool _hasContainedClass = false;
+         bool _hasExtern {};
+         bool _hasStatic {};
+
         string _containedClass;
         string _functionName;
         string _returnType;
-        string _functionPrefix;
         vector<Parameter> _parameters;
         vector<string> _body;
 

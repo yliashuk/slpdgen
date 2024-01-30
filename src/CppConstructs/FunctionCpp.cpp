@@ -1,7 +1,9 @@
 #include "FunctionCpp.h"
+#include "Utils/StringUtils.h"
 
 using CppConstructs::Function;
 using CppConstructs::Parameter;
+using namespace Utils;
 
 Function::Function(){}
 
@@ -27,29 +29,29 @@ void Function::SetDeclaration(string functionName, string returnType)
 
 void Function::SetExternDeclaration(bool enable)
 {
-    if(enable)
-        _functionPrefix = "extern" + spc;
-    else
-        _functionPrefix.clear();
+    _hasExtern = enable;
 }
 
 void Function::SetStaticDeclaration(bool enable)
 {
-    if(enable)
-        _functionPrefix = "static" + spc;
-    else
-        _functionPrefix.clear();
+    _hasStatic = enable;
 }
 
-string Function::GetFunctionName() const
+string Function::FunctionName() const
 {
     return  _functionName;
 }
 
-string Function::GetFunctionPointerDeclaration() const
+Parameter Function::FunctionPointer() const
 {
     string parameterString = GetParametersString(ParameterStringType::DeclAndDef);
-    return _returnType + spc + lsb + "*" + _functionName + rsb + lsb  + parameterString + rsb + smcln;
+    return {_returnType, fmt("(*%s)(%s)", {_functionName, parameterString})};
+}
+
+string Function::FunctionPointerDeclaration() const
+{
+    string parametersString = GetParametersString(ParameterStringType::DeclAndDef);
+    return fmt("%s (*%s)(%s);",{_returnType, _functionName, parametersString});
 }
 
 void Function::SetBody(vector<string> body)
@@ -57,36 +59,24 @@ void Function::SetBody(vector<string> body)
     _body = body;
 }
 
-string Function::GetDeclaration() const
+string Function::Declaration() const
 {
-    return  _functionPrefix + GetSignature(SignatureType::Decl) + smcln;
+    return (_hasExtern ? "extern " : "") + GetSignature(SignatureType::Decl) + ";";
 }
 
 void Function::SetContainedClass(string name)
 {
-    _hasContainedClass = true;
     _containedClass = name;
 }
 
 void Function::ResetContainedClass()
 {
-    _hasContainedClass = false;
+    _containedClass.clear();
 }
 
-vector<string> Function::GetDefinition() const
+vector<string> Function::Definition() const
 {
-    vector<string> content;
-
-    content.push_back(GetSignature(SignatureType::Def));
-
-    content.push_back(lb);
-
-    for(const auto &string: _body)
-        content.push_back(tab + string);
-
-    content.push_back(rb);
-
-    return content;
+    return GetSignature(SignatureType::Def) << "{" << fmt("\t%s", _d(_body)) << "}";
 }
 
 string Function::GetCall(vector<string> argumentNames, bool isPointer) const
@@ -95,13 +85,13 @@ string Function::GetCall(vector<string> argumentNames, bool isPointer) const
     for (const auto &parameter : argumentNames){
         parameterString += (parameter);
         if(parameter != argumentNames.back())
-            parameterString += com;
+            parameterString += ", ";
     }
     string postfixP;
     if(isPointer)
         postfixP = "_p";
 
-    return _functionName  + lsb  + parameterString + rsb + smcln;
+    return fmt("%s(%s);", {_functionName, parameterString});
 }
 
 string Function::GetCall(vector<Parameter> argumentNames) const
@@ -115,7 +105,7 @@ string Function::GetCall(vector<Parameter> argumentNames) const
 string Function::GetCall() const
 {
     string parameterString = GetParametersString(ParameterStringType::Call);
-    return _functionName + lsb  + parameterString + rsb;
+    return fmt("%s(%s)", {_functionName, parameterString});
 }
 
 vector<Parameter> Function::GetParameters() const
@@ -125,15 +115,13 @@ vector<Parameter> Function::GetParameters() const
 
 string Function::GetSignature(SignatureType type) const
 {
-    string parameterString = GetParametersString(ParameterStringType::DeclAndDef);
+    string parametersString = GetParametersString(ParameterStringType::DeclAndDef);
 
-    if(type == SignatureType::Def){
-        string scopeRes;
-        if(_hasContainedClass) scopeRes = "::";
-        return _returnType + spc + _containedClass + scopeRes + spc + _functionName + lsb  + parameterString + rsb;
-    }
-    else
-        return _returnType + spc + _functionName + lsb  + parameterString + rsb;
+    return fmt("%{%s }%s %{%s::}%s(%s)", {_hasStatic ? "static" : "",
+                                          _returnType,
+                                          type == SignatureType::Def ? _containedClass : "",
+                                          _functionName,
+                                          parametersString});
 }
 
 string Function::GetParametersString(ParameterStringType type) const
@@ -143,9 +131,9 @@ string Function::GetParametersString(ParameterStringType type) const
     for (const auto &parameter : _parameters)
     {
         auto hasType = ( type == ParameterStringType::DeclAndDef );
-        parameterString += ( (hasType ? (parameter.type  + spc) : "") + parameter.name);
+        parameterString += ( (hasType ? (parameter.type  + " ") : "") + parameter.name);
         if(parameter.name != _parameters.back().name)
-            parameterString += com;
+            parameterString += ", ";
     }
 
     return parameterString;

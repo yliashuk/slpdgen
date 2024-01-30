@@ -1,18 +1,18 @@
-#include "DescriptionHelper.h"
+#include "CalcSizeHelper.h"
 
-strings DescHelper::CalcSizeLoop(string typePrefix, StructField field,
+Strings CalcSizeHelper::CalcSizeLoop(string typePrefix, StructField field,
                                  FunType type)
 {
     ForLoopCpp loop = CalcSizeLoopDecl(field, type);
     loop.SetBody(CalcStructSize(typePrefix, field, type, true));
-    return loop.GetDefinition();
+    return loop.Definition();
 }
 
-strings
-DescHelper::CalcStructSize(string typePrefix, StructField field,
+Strings
+CalcSizeHelper::CalcStructSize(string typePrefix, StructField field,
                            FunType type, bool isInLoop)
 {
-    vector<string> body;
+    Strings body;
     string calcFunName;
     string callCalcFun;
 
@@ -21,39 +21,36 @@ DescHelper::CalcStructSize(string typePrefix, StructField field,
     // Generate call calculation function for ser/des size
     if(type == Ser)
     {
-        string arrIndex = isInLoop ? PutInSqBraces("i") : string{};
+        string arrIndex = isInLoop ? "[i]" : string{};
         string funParam = "&str->" + field.fieldName + arrIndex;
-        callCalcFun = "size += " + calcFunName + "(" + funParam + ")" + smcln;
+        callCalcFun = fmt("size += %s(%s);", {calcFunName, funParam});
     }
     else if (type == Des)
     {
-        string funParams = "p + c_size.r";
-        callCalcFun = "c_size_t c_tmp_size = " + calcFunName +
-                "(" + funParams + ")" + smcln;
+        callCalcFun = fmt("c_size_t c_tmp_size = %s(p + c_size.r);", {calcFunName});
     }
-    AppendStrings(body, {callCalcFun});
+    body << callCalcFun;
 
     if(type == Des)
     {
         // accumulate result of calculation function in local size var
-        AppendStrings(body, AccumulateSize(field));
+        body << AccumulateSize(field);
 
         // out of loop put code in {} braces to limit visibility tmp_size var
-        body = !isInLoop ? PutInBlock(body) : body;
+        body = !isInLoop ? Strings() << "{" << fmt("\t%s", _d(body)) << "}" : body;
     }
 
     return body;
 }
 
-string DescHelper::CalcSizeFunName(string name, FunType type)
+string CalcSizeHelper::CalcSizeFunName(string name, FunType type)
 {
     string funLabel = (type == Ser) ? "ser" : "des"; // send and receive
-    return "calculate" + b_und + name + b_und + funLabel +
-            b_und + "size";
+    return fmt("calculate_%s_%s_size",{name, funLabel});
 }
 
 string
-DescHelper::CalcSimpeTypeSize(StructField field, FunType type)
+CalcSizeHelper::CalcSimpeTypeSize(StructField field, FunType type)
 {
     string sumVar = type == Ser ? "size" : "c_size.r";
     string res = sumVar + " += " + FieldSize(field, type);
@@ -61,32 +58,25 @@ DescHelper::CalcSimpeTypeSize(StructField field, FunType type)
     {
         res += " * " + field.arrayTypeSize.Get();
     }
-    return res + smcln + " //" + field.fieldName;
+    return res + "; //" + field.fieldName;
 }
 
-string DescHelper::CalcDesSimpleArrTypeSize(string typePrefix,
+string CalcSizeHelper::CalcDesSimpleArrTypeSize(string typePrefix,
                                             StructField field)
 {
     string numOfElements = FieldSize(field, Des);
     string prefix = field.data.isStdType ? string{} : typePrefix;
 
     // type size after deserialization
-    string typeSize = PrintSizeOf(prefix + field.type.first);
+    string typeSize = fmt("sizeof(%s%s)",{prefix, field.type.first});
+
     auto dynArrSize = typeSize + " * " + numOfElements;
 
-    string comment = " //" + field.fieldName;
-
     // calculate dynamic size
-    return "c_size.d += " + dynArrSize + smcln + comment;
+    return fmt("c_size.d += %s; //%s",{dynArrSize, field.fieldName});
 }
 
-void
-DescHelper::AppendStrings(vector<string> &dst, const vector<string> &src)
-{
-    std::copy(src.begin(), src.end(), std::back_inserter(dst));
-}
-
-Function DescHelper::CalcSizeFunDecl(string name, FunType type, bool hasStatic)
+Function CalcSizeHelper::CalcSizeFunDecl(string name, FunType type, bool hasStatic)
 {
     Parameter funParam = type == Ser ? Parameter{name + "*", "str"} :
                                        Parameter{"char*","p"};
@@ -95,28 +85,29 @@ Function DescHelper::CalcSizeFunDecl(string name, FunType type, bool hasStatic)
 
     string staticPrefix = hasStatic ? "static " : "";
 
-    fun.SetDeclaration(DescHelper::CalcSizeFunName(name, type),
+    fun.SetDeclaration(CalcSizeHelper::CalcSizeFunName(name, type),
                        staticPrefix + returnParam,
                        funParam);
     return fun;
 }
 
-strings DescHelper::CSizeDef()
+Strings CalcSizeHelper::CSizeDef()
 {
-    strings body;
-
-    body.push_back("size_t s; // static part");
-    body.push_back("size_t d; // dynamic part");
-    body.push_back("size_t r; // size in raw memory");
+    StructCpp::Fields fields {
+        {"size_t", "s", "static part"},
+        {"size_t", "d", "dynamic part"},
+        {"size_t", "r", "size in raw memory"}
+    };
 
     StructCpp str;
     str.SetName("c_size_t");
-    str.SetBody(body);
+    str.SetTypeDef(true);
+    str.AddFields(fields);
 
-    return str.GetDeclaration();
+    return str.Declaration();
 }
 
-ForLoopCpp DescHelper::CalcSizeLoopDecl(StructField field, FunType type)
+ForLoopCpp CalcSizeHelper::CalcSizeLoopDecl(StructField field, FunType type)
 {
     string init =  "size_t i = 0";
     string condition = " i < " + FieldSize(field, type);
@@ -128,22 +119,22 @@ ForLoopCpp DescHelper::CalcSizeLoopDecl(StructField field, FunType type)
     return loop;
 }
 
-vector<string> DescHelper::AccumulateSize(StructField field)
+vector<string> CalcSizeHelper::AccumulateSize(StructField field)
 {
     vector<string> body;
-    if(field.data.withLenDefiningVar)
+    if(field.data.hasDynamicSize)
     {
-        AppendStrings(body, {"c_size.d += c_tmp_size.s" + smcln});
+        body << "c_size.d += c_tmp_size.s;";
     }
-    AppendStrings(body, {"c_size.d += c_tmp_size.d" + smcln});
-    AppendStrings(body, {"c_size.r += c_tmp_size.r" + smcln});
+    body << "c_size.d += c_tmp_size.d;";
+    body << "c_size.r += c_tmp_size.r;";
 
     return body;
 }
 
-string DescHelper::FieldSize(StructField field, FunType type)
+string CalcSizeHelper::FieldSize(StructField field, FunType type)
 {
-    bool isDynamic = field.data.withLenDefiningVar;
+    bool isDynamic = field.data.hasDynamicSize;
 
     // write the fix size for static array field or var names for dynamic
     auto size = isDynamic ? field.data.lenDefiningVar : field.fieldSize.Get();

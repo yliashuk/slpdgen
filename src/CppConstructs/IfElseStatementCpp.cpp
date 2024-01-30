@@ -1,4 +1,5 @@
 #include "IfElseStatementCpp.h"
+#include "Utils/StringUtils.h"
 
 using CppConstructs::IfElseStatementCpp;
 
@@ -24,17 +25,12 @@ vector<string> IfElseStatementCpp::GetDefinition(IfElseStructure structure) cons
 
     for(const auto &var: _caseContent)
     {
-        if(_caseContent.front() == var || structure == IfElseStructure::If)
-            content.push_back("if" + lsb + var.first + rsb);
-        else
-            content.push_back("else if" + lsb + var.first + rsb);
-
-        content.push_back(lb);
-
-        for(const auto &string: var.second)
-            content.push_back(tab + string);
-
-        content.push_back(rb);
+        if(_caseContent.front() == var || structure == IfElseStructure::If) {
+            content << fmt("if(%s)", {var.first});
+        } else {
+            content << fmt("else if(%s)", {var.first});
+        }
+        content << "{" << fmt("\t%s", _d(var.second)) << "}";
     }
     return content;
 }

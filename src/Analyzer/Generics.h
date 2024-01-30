@@ -31,7 +31,14 @@ typedef enum
     Ok
 } Status;
 
+template<template <class ...> class Container, typename T>
+std::optional<T> FindByName(const Container<T>& types, string name)
+{
+    auto it = std::find_if(types.begin(), types.end(),
+                           [name](T type) { return type.GetName() == name; });
 
+    return it != types.end() ? *it : std::optional<T>{};
+}
 
 template<typename T>
 typename vector<T>::iterator FindInVector(vector<T>& DataStruct, T content)
