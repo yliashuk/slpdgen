@@ -1,41 +1,39 @@
 #include "EnumDescription.h"
+#include "Utils/StringUtils.h"
 
-EnumDescription::EnumDescription()
-{
+using namespace Utils;
 
-}
+EnumDescription::EnumDescription(){}
 
 size_t EnumDescription::Size()
 {
     size_t maxVal = 0;
     for(auto var: fields)
-        if(maxVal < var.second)
+    {
+        if(maxVal < var.second) {
             maxVal = var.second;
-    if(maxVal < 255)
-        return 1;
-    else
-        return 2;
+        }
+    }
+    if(maxVal < 255) { return 1; }
+    else {return 2; }
 }
 
-vector<string> EnumDescription::PrintDecl(bool withEnumText)
+vector<string> EnumDescription::Declaration(bool withEnumText)
 {
-    vector<string> strings;
-    strings.push_back("typedef enum");
-    strings.push_back(string("{"));
+    vector<string> content;
+    content << "typedef enum" << "{";
 
     for(auto var : fields)
     {
-        strings.push_back(string("\t") + _prefix + var.first + " = " +
-                          to_string(var.second));
-        if(fields.back() != var)
-            strings.back() += ",";
+        content << fmt("\t%s%s = %s", {_prefix, var.first, to_string(var.second)});
+        if(fields.back() != var) { content.back() += ","; }
     }
-    if(withEnumText)
-        strings.push_back(string("}" + PrintType() + name + ";"));
-    else
-        strings.push_back(string("}" + _prefix + name + ";"));
-    strings.push_back("");
-    return strings;
+    if(withEnumText) {
+        content << "}" + PrintType() + name + ";"; }
+    else {
+        content << "}" + _prefix + name + ";";
+    }
+    return content;
 }
 
 void EnumDescription::SetName(string name)
@@ -50,14 +48,12 @@ string EnumDescription::GetName() const
 
 void EnumDescription::SetPrefix(string prefix)
 {
-    _prefix = prefix + b_und;
+    _prefix = prefix + "_";
 }
 
 string EnumDescription::GetPrefix()
 {
-   // if(_prefix.empty())
-   //     return "";
-    return _prefix /*+ b_und*/;
+    return _prefix;
 }
 
 string EnumDescription::PrintType()

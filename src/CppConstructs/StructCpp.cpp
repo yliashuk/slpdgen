@@ -1,54 +1,48 @@
 #include "StructCpp.h"
 
-using CppConstructs::StructCpp;
+using namespace std;
+using namespace CppConstructs;
 
-StructCpp::StructCpp()
-{
-
-}
-
-StructCpp::StructCpp(string structName)
+StructCpp::StructCpp(const String& structName)
 {
     _structName = structName;
 }
 
-void StructCpp::SetName(string structName)
+void StructCpp::SetTypeDef(bool state)
+{
+    _hasTypeDef = state;
+}
+
+void StructCpp::SetName(const String &structName)
 {
     _structName = structName;
 }
 
-string StructCpp::GetName() const
+String StructCpp::GetName() const
 {
     return _structName;
 }
 
-void StructCpp::SetBody(vector<string> body)
+void StructCpp::AddField(const Field &field)
 {
-    _body = body;
+    _fields += field;
 }
 
-vector<string> StructCpp::GetDeclaration(bool hasTypeDef) const
+void StructCpp::AddFields(const Fields &fields)
 {
-    vector<string> content;
-    string header;
+    _fields += fields;
+}
 
-    if(hasTypeDef)
-         header = "typedef struct";
-    else
-        header = "struct " + _structName;
+StructCpp::Fields StructCpp::GetFields()
+{
+    return _fields;
+}
 
+Strings StructCpp::Declaration() const
+{
+    String header = {(_hasTypeDef ? "typedef " : "") + "struct"s
+            + (_hasTypeDef ? "" : " " + _structName)};
+    String end = "}" + (_hasTypeDef ? _structName : "") + ";";
 
-    if(this->_body.empty()) return content;
-    content.push_back(header);
-    content.push_back(lb);
-    for(const auto &var: _body)
-    {
-             content.push_back(tab + var);
-    }
-    if(hasTypeDef)
-        content.push_back(rb + _structName + smcln);
-    else
-        content.push_back(rb + smcln);
-
-    return content;
+    return header << "{" << fmt("\t%s %s;%{ //%s}", _fields) << end;
 }

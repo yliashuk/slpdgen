@@ -1,4 +1,5 @@
 #include "ForLoopCpp.h"
+#include "Utils/StringUtils.h"
 
 using CppConstructs::ForLoopCpp;
 
@@ -16,21 +17,13 @@ void ForLoopCpp::SetBody(vector<string> body)
     _body = body;
 }
 
-void ForLoopCpp::SetBody(string body)
+vector<string> ForLoopCpp::Definition() const
 {
-    _body.clear();
-    _body.push_back(body);
-}
-
-vector<string> ForLoopCpp::GetDefinition() const
-{
+    if(this->_body.empty()) { return {};}
     vector<string> content;
-    if(this->_body.empty()) return content;
 
-    content.push_back("for" + lsb + _init + smcln + _condition + smcln + _increment + rsb);
-    content.push_back(lb);
-    for(const auto &string: _body)
-        content.push_back(tab + string);
-    content.push_back(rb);
+    content << fmt("for(%s;%s;%s)", {_init, _condition, _increment});
+    content << "{" << fmt("\t%s", _d(_body)) << "}";
+
     return content;
 }

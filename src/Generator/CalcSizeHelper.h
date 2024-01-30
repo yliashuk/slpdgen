@@ -1,5 +1,5 @@
-#ifndef DESCRIPTIONHELPER_H
-#define DESCRIPTIONHELPER_H
+#ifndef CALCSIZELOOP_H
+#define CALCSIZELOOP_H
 
 #include <vector>
 #include <string>
@@ -38,22 +38,15 @@ struct StructField
     FieldData data;
 };
 
-using strings = std::vector<string>;
-
-template<typename T, template<class> class Container>
-bool Contain(const Container<T>& c, T val) {
-    return std::find(c.begin(), c.end(), val) != c.end();
-}
-
-class DescHelper
+class CalcSizeHelper
 {
 public:
-    DescHelper() = delete;
+    CalcSizeHelper() = delete;
 
-    static strings CalcSizeLoop(string typePrefix, StructField field,
+    static Strings CalcSizeLoop(string typePrefix, StructField field,
                                 FunType type);
 
-    static strings CalcStructSize(string typePrefix,
+    static Strings CalcStructSize(string typePrefix,
                                   StructField field, FunType type,
                                   bool isInLoop = false);
 
@@ -65,11 +58,9 @@ public:
     static string CalcDesSimpleArrTypeSize(string typePrefix,
                                            StructField field);
 
-    static void AppendStrings(vector<string>& dst, const vector<string> &src);
-
     static Function CalcSizeFunDecl(string name, FunType type, bool hasStatic);
 
-    static strings CSizeDef();
+    static Strings CSizeDef();
 
 private:
     static ForLoopCpp CalcSizeLoopDecl(StructField field, FunType type);

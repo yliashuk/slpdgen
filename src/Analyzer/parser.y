@@ -233,53 +233,68 @@ rules_parse_input:
 rules_parse:
             WORD DOUBLE_COLON WORD COLON WORD EMPTY THEREFORE NONE
             {
-                auto status = formater.AddRule(new string($3), new string($5));
+                Rule rule = RuleBuilder().command($3).sendType($5).build();
+
+                auto status = formater.AddRule(rule);
                 errorPrint(status);    
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE NONE
             {
-                auto status = formater.AddRule(new string($3), new string($5),
-                                                new string($6));
+                Rule rule = RuleBuilder().command($3).sendType($5).
+                        sendPacket($6).build();
+
+                auto status = formater.AddRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD EMPTY THEREFORE WORD EMPTY
             {
-                auto status = formater.AddRule(new string($3), new string($5),
-                                                nullptr, new string($8));
+                Rule rule = RuleBuilder().command($3).sendType($5).
+                        responseType($8).build();
+
+                auto status = formater.AddRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD EMPTY
             {
-                auto status = formater.AddRule(new string($3), new string($5),
-                                                new string($6),new string($8));
+                Rule rule = RuleBuilder().command($3).sendType($5).sendPacket($6).
+                        responseType($8).build();
+
+                auto status = formater.AddRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD EMPTY THEREFORE WORD WORD
             {
-                auto status = formater.AddRule(new string($3), new string($5),
-                                                nullptr,new string($8), new string($9));
+                Rule rule = RuleBuilder().command($3).sendType($5).responseType($8).
+                        responsePacket($9).build();
+
+                auto status = formater.AddRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD WORD
             {
-                auto status = formater.AddRule(new string($3), new string($5),
-                                                new string($6), new string($8),
-                                                new string($9));
+                Rule rule = RuleBuilder().command($3).sendType($5).sendPacket($6).responseType($8).
+                        responsePacket($9).build();
+
+                auto status = formater.AddRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD EMPTY THEREFORE WORD EMPTY REVERSE
             {
                 cout << "warning:" << '"' << "reverse" << '"' << " unused"
                      << ", line:" << curr_line << endl;
-                auto status = formater.AddRule(new string($3), new string($5),
-                                                nullptr, new string($8));
+
+                Rule rule = RuleBuilder().command($3).sendType($5).
+                        responseType($8).build();
+
+                auto status = formater.AddRule(rule, true);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD EMPTY REVERSE
             {
-                auto status = formater.AddRule(new string($3), new string($5),
-                                                new string($6), new string($8),
-                                                nullptr, bool(true));
+                Rule rule = RuleBuilder().command($3).sendType($5).sendPacket($6).
+                        responseType($8).build();
+
+                auto status = formater.AddRule(rule, true);
                 errorPrint(status);
             }
 //          | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD WORD REVERSE

@@ -2,7 +2,6 @@
 #define CYCLEFORCONSTRUCTS_H
 #include <string>
 #include <vector>
-#include "CommonCpp.h"
 
 using namespace std;
 
@@ -14,8 +13,7 @@ namespace CppConstructs
         ForLoopCpp();
         void SetDeclaration(string init, string condition, string increment);
         void SetBody(vector<string> body);
-        void SetBody(string body);
-        vector<string> GetDefinition() const;
+        vector<string> Definition() const;
 
     private:
         string _init;

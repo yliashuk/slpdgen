@@ -1,8 +1,8 @@
 #ifndef CODEGENERATOR_H
 #define CODEGENERATOR_H
 
-#include <map>
-#include <fstream>
+#include <memory>
+#include "AppOptions.h"
 #include "Analyzer/Formater.h"
 #include "ComplexTypeDescription.h"
 #include "EnumDescription.h"
@@ -10,108 +10,60 @@
 #include "CppConstructs/IfElseStatementCpp.h"
 #include "CppConstructs/FunctionCpp.h"
 #include "CppConstructs/StructCpp.h"
+#include "RulesDefinedMessage.h"
+#include "MsgHandlerGen.h"
 
 using namespace CppConstructs;
-
-struct SimpleRule
-{
-    string command;
-    string sendType;
-    string sendPacket;
-    bool isEmptySend;
-    bool hasResponse;
-    bool hasEmptyResponse;
-    string responseType;
-    string responsePacket;
-};
-
-struct InterfaceFunction
-{
-    InterfaceFunction(string command, string type, Function func,
-                      ComplexTypeDescription packet):
-    command(command), type(type), withPacket(true), func(func), packet(packet){}
-    InterfaceFunction(string command, string type, Function func):
-    command(command), type(type), func(func) {}
-    string command;
-    string type;
-    bool withPacket = false;
-    Function func;
-    ComplexTypeDescription packet;
-};
 
 class CodeGenerator
 {
 public:
-    CodeGenerator(string fileName, Formater exchangeDescription, bool addrOption = true,
-                  bool qtOption = true, bool qtCppOption = true);
+    CodeGenerator(AppOptions options, Formater exchangeDescription);
     void Generate();
 
 private:
-    string _fileName, _fileNameLowerCase;
+    string _fName;
+    AppOptions _options;
+
     vector<pair<string,fieldType>> _types;
     vector<ComplexTypeDescription> _structDeclarations;
-    ComplexTypeDescription _headerDeclarations;
+    ComplexTypeDescription _header;
     vector<EnumDescription> _enumDeclarations;
     Formater _exchangeDescription;
 
-    string _typeObjName;
-    EnumDescription _errorEnum;
-    StructCpp _cbsStruct, _protocolObj, _localParams;
-    bool _qtOption, _qtCppOption, _addrOption;
+    vector<RulesDefinedMessage> _rdms;
+    std::unique_ptr<MsgHandlerGen> _handlerGen;
 
-    vector<pair<string,string>> _localVar;
+    void AnalizeRules();
 
-    Function _cbSendFun, _initFun, _setCbsFun, _resetCbsFun;
-    Function _getLocalParamsFun, _parseFun;
+    EnumDescription EnumDecl(Enum IntermediateEnum, EnumerableType type);
+    EnumDescription EnumErrorCode();
 
-    ofstream _oStream;
-
-    vector<string> MainDesFormat();
-    vector<string> MainSerFormaters();
-    EnumDescription GenEnumDecl(Enum IntermediateEnum, EnumerableType type);
-    EnumDescription GenEnumErrorCodeDecl();
-    Parameter GetAddrParameter();
     StructCpp GenAddrDecl();
+    Parameter GetAddrParameter();
+
     ComplexTypeDescription GenStructDecl(Struct &IntermediateStruct, ComplexType type);
-    void TestPrint(vector<string> strings);
-    void PrintToFile(ofstream &stream, string str);
-    void PrintToFile(ofstream &stream, vector<string> strings);
-    pair<string,size_t> ConvertToCStdType(string slpdType);
+
     string GetVersion();
+
     void GenerateHeader();
     void GenerateHeaderQt();
     void GenerateSource();
     void GenerateSourceQt();
-    vector<string> ConstructDefinition();
 
-    vector<ComplexTypeDescription>::iterator
-    FindDeclaration(vector<ComplexTypeDescription>& DataStruct, string typeName);
+    Function InitProtoFun();
 
-    vector<EnumDescription>::iterator
-    FindDeclaration(vector<EnumDescription>& DataStruct, string content);
+    // only for C generation
 
+    StructCpp ProtoObj();
+    StructCpp LocalParams();
+    Function LocalParamsFun();
+    Function SetCbsFun();
+    Function ResetCbsFun();
+    StructCpp CbsStruct();
+    vector<string> MemoryManager();
 
-    vector<InterfaceFunction> interfaceSenderFunctions;
-    vector<InterfaceFunction> interfaceReceiveFunctions;
-
-    void AnalizeRules(vector<Rule> slpdRules,
-                      vector<ComplexTypeDescription> structDeclarations,
-                      ComplexTypeDescription header);
-
-    vector<string> GetInterfaceSendFuncBody(string headerVar, string command,
-                                            string sendType,
-                                            vector<Parameter> headerParameteres);
-    vector<string> GetInterfaceSendFuncBody(string headerCommandVar,
-                                            string command, string sendType,
-                                            ComplexTypeDescription packet,
-                                            vector<Parameter> headerRemoteParam);
-    vector<string> SetBodySetCbs();
-    vector<string> SetBodyResetCbs();
-    vector<string> SetBodyLocaParamsStruct(vector<Parameter> params);
-    vector<string> SetBodyGetLocaParamsFun(vector<Parameter> params);
-    string PrintClassText(string var);
-    string PrintStructText(string var);
-    vector<string> PrintMemoryManager();
+    static pair<string,size_t> ConvertToCStdType(string slpdType);
 };
 
 #endif // CODEGENERATOR_H

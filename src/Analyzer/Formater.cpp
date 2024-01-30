@@ -95,60 +95,48 @@ ComplexStatus Formater::AddStructField(DataStructType strTp, string currBlockNam
     return complexStatus;
 }
 
-ComplexStatus Formater::AddRule(string *command, string *sendType, string *sendPacket,
-                                string *responseType, string *responsePacket,
-                                bool isReverse)
+ComplexStatus Formater::AddRule(Rule rule, bool hasReverse)
 {
-    auto error = RuleCheck(command, sendType, sendPacket, responseType, responsePacket);
+    auto error = RuleCheck(rule);
+
     if(error.status == Ok)
     {
-        Rule rule(command,sendType, sendPacket, responseType, responsePacket, isReverse);
         rules.push_back(rule);
+        if(hasReverse) {rules.push_back(Rule::Reverse(rule));}
+
         ComplexStatus complexStatus = {Ok, "nullptr"};
         return complexStatus;
     }
-
-    if(command != nullptr)
-        delete command;
-    if(sendType != nullptr)
-        delete sendType;
-    if(sendPacket != nullptr)
-        delete sendPacket;
-    if(responseType != nullptr)
-        delete responseType;
-    if(responsePacket != nullptr)
-        delete responsePacket;
-
     return error;
 }
 
-ComplexStatus Formater::RuleCheck(string *command, string *sendType, string *sendPacket,
-                                  string *responseType, string *responsePacket)
+ComplexStatus Formater::RuleCheck(Rule rule)
 {
-    if(command != nullptr && DataStructIsNotContains(codeList.at(0), *command))
+    if(DataStructIsNotContains(codeList.at(0), *rule.command))
     {
-        ComplexStatus complexStatus = {FieldNameNotContained, *command};
+        ComplexStatus complexStatus = {FieldNameNotContained, *rule.command};
         return complexStatus;
     }
-    if(sendType != nullptr && DataStructIsNotContains(typeList.at(0), *sendType))
+    if(DataStructIsNotContains(typeList.at(0), *rule.sendType))
     {
-        ComplexStatus complexStatus = {FieldNameNotContained, *sendType};
+        ComplexStatus complexStatus = {FieldNameNotContained, *rule.sendType};
         return complexStatus;
     }
-    if(sendPacket != nullptr && GetListDataStruct(packetList, *sendPacket) ==
+    if(!rule.isEmptySend() && GetListDataStruct(packetList, *rule.sendPacket) ==
             packetList.end())
     {
-        ComplexStatus complexStatus = {FieldNameNotContained, *sendPacket};
+        ComplexStatus complexStatus = {FieldNameNotContained, *rule.sendPacket};
         return complexStatus;
     }
-    if(responseType != nullptr && DataStructIsNotContains(typeList.at(0), *responseType))
+    if(rule.hasResponse() && DataStructIsNotContains(typeList.at(0), *rule.responseType))
     {
-        ComplexStatus complexStatus = {FieldNameNotContained, *sendType};
+        ComplexStatus complexStatus = {FieldNameNotContained, *rule.sendType};
         return complexStatus;
     }
-    if(responsePacket != nullptr && GetListDataStruct(packetList, *responsePacket) == packetList.end())
+    if(rule.hasResponseData() && GetListDataStruct(packetList, *rule.responsePacket) ==
+            packetList.end())
     {
-        ComplexStatus complexStatus = {FieldNameNotContained, *responsePacket};
+        ComplexStatus complexStatus = {FieldNameNotContained, *rule.responsePacket};
         return complexStatus;
     }
     ComplexStatus complexStatus = {Ok, "nullptr"};
