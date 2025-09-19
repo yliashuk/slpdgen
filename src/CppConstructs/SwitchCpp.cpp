@@ -5,17 +5,17 @@ using CppConstructs::SwitchCpp;
 
 SwitchCpp::SwitchCpp(){}
 
-void SwitchCpp::SetSwitchingParameter(string parameter)
+void SwitchCpp::setSwitchingParameter(string parameter)
 {
     this->_switchingParameter = parameter;
 }
 
-void SwitchCpp::AddCase(string switchValue, vector<string> content)
+void SwitchCpp::addCase(string switchValue, vector<string> content)
 {
     this->_switchContent.push_back({switchValue, content});
 }
 
-vector<string> SwitchCpp::Declaration() const
+vector<string> SwitchCpp::declaration() const
 {
     if(this->_switchContent.empty()){ return {}; }
 

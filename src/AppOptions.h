@@ -5,6 +5,9 @@
 
 struct AppOptions
 {
+    bool isJson;
+
+    bool isC;
     bool isCpp;
     bool isQt;
     bool hasAddr;

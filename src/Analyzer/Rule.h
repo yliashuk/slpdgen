@@ -18,7 +18,7 @@ struct Rule
     bool hasResponseData() const;
     bool isValid() const;
 
-    static Rule Reverse(const Rule& rule);
+    static Rule reverse(const Rule& rule);
 };
 
 class RuleBuilder

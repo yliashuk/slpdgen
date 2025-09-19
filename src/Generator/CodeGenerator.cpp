@@ -2,77 +2,77 @@
 #include <fstream>
 #include "VersionInfo.h"
 #include "MsgHandlerGen.h"
+#include "CppConstructs/FunctionsSrc.h"
+#include "Utils/AutoEndlStream.h"
 
 CodeGenerator::CodeGenerator(AppOptions options, Formater exchangeDescription)
-{
-    _options = options;
-    _fName = options.fileName;
-    _exchangeDescription = exchangeDescription;
-}
+    : _fName(options.fileName), _options(options),
+      _exchangeDescription(exchangeDescription), _stdTypeHandler(options){}
 
-void CodeGenerator::Generate()
+void CodeGenerator::generate()
 {
     for(auto info: _exchangeDescription.codeList)
     {
-        auto decl = EnumDecl(info, EnumerableType::Code);
-        _types.push_back({decl.GetName(),fieldType::Code});
+        auto decl = enumDecl(info, EnumerableType::Code);
+        _types.push_back({decl.getName(),FieldType::Code});
         _enumDeclarations.push_back(decl);
     }
 
     for(auto info: _exchangeDescription.typeList)
     {
-        auto decl = EnumDecl(info, EnumerableType::Type);
-        _types.push_back({decl.GetName(),fieldType::Type});
+        auto decl = enumDecl(info, EnumerableType::Type);
+        _types.push_back({decl.getName(),FieldType::Type});
         _enumDeclarations.push_back(decl);
     }
 
     for(auto info: _exchangeDescription.headerList) {
-        _header = GenStructDecl(info, ComplexType::Header);
+        _header = structDecl(info, ComplexType::Header);
     }
 
     for(auto info: _exchangeDescription.enumList)
     {
-        auto decl = EnumDecl(info, EnumerableType::Enum);
-        _types.push_back({decl.GetName(),fieldType::Enum});
+        auto decl = enumDecl(info, EnumerableType::Enum);
+        _types.push_back({decl.getName(),FieldType::Enum});
         _enumDeclarations.push_back(decl);
     }
 
     for(auto info: _exchangeDescription.structList)
     {
-        auto decl = GenStructDecl(info, ComplexType::Struct);
-        _types.push_back({decl.GetName(),fieldType::Struct});
+        auto decl = structDecl(info, ComplexType::Struct);
+        _types.push_back({decl.getName(),FieldType::Struct});
         _structDeclarations.push_back(decl);
     }
 
     for(auto info: _exchangeDescription.packetList)
     {
-        auto decl = GenStructDecl(info, ComplexType::Message);
-        _types.push_back({decl.GetName(),fieldType::Struct});
+        auto decl = structDecl(info, ComplexType::Message);
+        _types.push_back({decl.getName(),FieldType::Struct});
         _structDeclarations.push_back(decl);
     }
 
-    _handlerGen.reset(new MsgHandlerGen(_options, EnumErrorCode(), _header));
+    _handlerGen.reset(new MsgHandlerGen(_options, enumErrorCode(), _header));
 
-    AnalizeRules();
+    analizeRules();
+    checkAndSetUsedCopyMethods();
 
     if(_options.isCpp) {
-        GenerateSourceQt();
-        GenerateHeaderQt();
+        generateCppSource();
+        generateCppHeader();
     }
     else {
-        GenerateSource();
-        GenerateHeader();
+        generateSource();
+        generateHeader();
     }
 }
 
-void CodeGenerator::AnalizeRules()
+void CodeGenerator::analizeRules()
 {
     auto rules = _exchangeDescription.rules;
 
     auto Rdm = [=](auto command, auto type, auto msg) {
         auto name = msg.value_or("");
-        auto typeDescription = FindByName(_structDeclarations, name);
-        return RulesDefinedMessage{command, type, typeDescription};
+        auto declaration = findByNameOpt(_structDeclarations, name);
+        return RulesDefinedMessage{command, type, declaration};
     };
 
     for(auto rule : rules)
@@ -85,394 +85,447 @@ void CodeGenerator::AnalizeRules()
     }
 }
 
-EnumDescription CodeGenerator::EnumDecl(Enum IntermediateEnum, EnumerableType type)
+EnumDescription CodeGenerator::enumDecl(Enum IntermediateEnum, EnumerableType type)
 {
     EnumDescription decl;
     decl.type = type;
-    decl.SetName(IntermediateEnum.first);
-    decl.fields = IntermediateEnum.second;
+    decl.setName(IntermediateEnum.name);
+    decl.fields = IntermediateEnum.fields;
+
+    if(IntermediateEnum.bitWidth.has_value()) {
+        decl.setBitWidth(*IntermediateEnum.bitWidth);
+    }
 
     if(!_options.isCpp)
-        decl.SetPrefix(toLower(_fName));
+        decl.setPrefix(toLower(_fName));
 
     return decl;
 }
 
-EnumDescription CodeGenerator::EnumErrorCode()
+EnumDescription CodeGenerator::enumErrorCode()
 {
     EnumDescription decl;
     decl.type = EnumerableType::Enum;
-    decl.SetName("ErrorCode");
+    decl.setName("ErrorCode");
 
-    vector<FieldDataEnum> fields;
+    vector<EnumFieldInfo> fields;
     fields.push_back({"OK", 0});
     fields.push_back({"ERROR", 1});
     decl.fields = fields;
 
     if(!_options.isCpp)
-        decl.SetPrefix(toLower(_fName));
+        decl.setPrefix(toLower(_fName));
 
     return decl;
 }
 
-Parameter CodeGenerator::GetAddrParameter()
-{
-    Parameter parameter;
-
-    if(!_options.isCpp)
-         parameter.type = toLower(_fName) + "_Addr*";
-    else
-        parameter.type = "Addr*";
-
-    parameter.name = "addr";
-    return parameter;
-}
-
-StructCpp CodeGenerator::GenAddrDecl()
+StructCpp CodeGenerator::addrDecl()
 {
     StructCpp decl;
-    decl.AddFields({
+    decl.addFields({
                        {_options.isQt ? "QHostAddress" : "uint32_t", "ip"},
                        {"uint16_t", "port"}
                    });
 
-    decl.SetName(_options.isCpp ? "Addr" : toLower(_fName) + "_Addr");
-    decl.SetTypeDef(!_options.isCpp);
+    decl.setName(_options.isCpp ? "Addr" : toLower(_fName) + "_Addr");
+    decl.setTypeDef(!_options.isCpp);
 
     return decl;
 }
 
-ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, ComplexType type)
+ComplexTypeDescription CodeGenerator::structDecl(Struct& IntermediateStruct, ComplexType type)
 {
     ComplexTypeDescription decl;
-    decl.SetOption(_options);
+    decl.setOption(_options);
 
     if(!_options.isCpp) {
-        decl.SetPrefix(toLower(_fName));
+        decl.setPrefix(toLower(_fName));
     }
 
-    decl.SetBlockType(type);
-    decl.SetName(IntermediateStruct.first);
-    for(auto var: IntermediateStruct.second)
+    if(type == ComplexType::Message) {
+        decl.addContextOffset(_header.size());
+    }
+
+    decl.setBlockType(type);
+    decl.setName(IntermediateStruct.name);
+    for(auto var: IntermediateStruct.fields)
     {
-        if(var.second.isStdType)
+        auto fType = var.second.type;
+        if(auto stdType = _stdTypeHandler.checkType(fType, var.second.isArray()))
         {
-            auto fieldType = ConvertToCStdType(var.second.type);
-            decl.addField(var, {fieldType.first, fieldType::std}, fieldType.second);
+            decl.addField(var, {stdType->first, FieldType::std}, stdType->second);
         } else
         {
-            auto it = FindInVector(_types, var.second.type);
+            auto it = findInVector(_types, fType);
             if(it != _types.end())
             {
-                if(it->second == fieldType::Struct)
+                if(it->second == FieldType::Struct)
                 {
-                    auto p = FindByName(_structDeclarations, var.second.type);
-                    decl.addField(var, {p->GetName(), fieldType::Struct}, p->Size());
+                    auto p = findByName(_structDeclarations, fType);
+                    setupCopyOptions(var, *p, _header.size() + decl.size());
+                    decl.addField(var, {p->getName(), FieldType::Struct}, p->size());
                 }
-                else if(it->second == fieldType::Enum)
+                else if(it->second == FieldType::Enum)
                 {
-                    auto p = FindByName(_enumDeclarations, var.second.type);
-                    decl.addField(var, {p->GetName(), fieldType::Enum}, p->Size());
+                    auto p = findByName(_enumDeclarations, fType);
+                    decl.addField(var, {p->getName(), FieldType::Enum}, p->size());
                 }
-                else if(it->second == fieldType::Code)
+                else if(it->second == FieldType::Code)
                 {
-                    auto p = FindByName(_enumDeclarations, var.second.type);
-                    decl.addField(var, {p->GetName(), fieldType::Code}, p->Size());
+                    auto p = findByName(_enumDeclarations, fType);
+                    decl.addField(var, {p->getName(), FieldType::Code}, p->size());
                 }
-                else if(it->second == fieldType::Type)
+                else if(it->second == FieldType::Type)
                 {
-                    auto p = FindByName(_enumDeclarations, var.second.type);
-                    decl.addField(var, {p->GetName(), fieldType::Type}, p->Size());
+                    auto p = findByName(_enumDeclarations, fType);
+                    decl.addField(var, {p->getName(), FieldType::Type}, p->size());
                 }
             }
             else {
                 throw invalid_argument(fmt("type not found: \"%s\" in \"%s\"", {
-                                               var.second.type, IntermediateStruct.first}));
+                                               fType, IntermediateStruct.name}));
             }
         }
     }
     return decl;
 }
 
-string CodeGenerator::GetVersion()
+void CodeGenerator::checkAndSetUsedCopyMethods()
 {
-    return fmt("// SLPD Version %s.%s.%s Build %s %s\n\n",
+    auto checkFieldMethod = [=](bool usedAlignedCopy)
+    {
+        if(usedAlignedCopy) { bitcpyaUsed = true; }
+        else { bitcpyUsed = true; }
+    };
+
+    for(const auto& field : _header.fields())
+    {
+        checkFieldMethod(_header.shouldUseAlignedCopy(field));
+    }
+
+    for(const auto& decl : _structDeclarations)
+    {
+        for(const auto& field : decl.fields())
+        {
+            checkFieldMethod(decl.shouldUseAlignedCopy(field));
+        }
+    }
+}
+
+void CodeGenerator::setupCopyOptions(const StructFieldInfo &info,
+                                     ComplexTypeDescription &type, SizeExprPtr offset)
+{
+    if(info.second.isArray() && !type.size()->isMultipleOf(8)) {
+        type.setAlignedCopyPreferred(false);
+    } else {
+        type.addContextOffset(offset);
+    }
+}
+
+string CodeGenerator::getVersion()
+{
+    return fmt("// SLPD Version %s.%s.%s Build %s %s\n",
     {to_string(MAJOR_VERSION), to_string(MINOR_VERSION),
      to_string(PATCH_VERSION), APP_TIME, APP_DATE});
 }
 
-void CodeGenerator::GenerateHeader()
+void CodeGenerator::generateHeader()
 {
     ofstream oStream;
-    oStream.open(toUpper(_fName) + ".h");
-    oStream<< GetVersion();
-    oStream << fmt("#ifndef %s_H", {toUpper(_fName)}) << endl;
-    oStream << fmt("#define %s_H", {toUpper(_fName)}) << endl;
-    oStream << endl;
-    oStream << "#include <stdint.h>" << endl;
-    oStream << endl;
+    oStream.open(_fName + ".h");
+    AutoEndlStream out(oStream);
 
-    oStream << EnumErrorCode().Declaration(false) << endl;
+    out << getVersion();
+    out << fmt("#ifndef %s_H", {toUpper(_fName)});
+    out << fmt("#define %s_H", {toUpper(_fName)});
+    out << "";
+    out << "#include <stdint.h>";
+    out << "#include <stdbool.h>";
+
+    out << _stdTypeHandler.bitfieldArrayTypes();
+
+    out << enumErrorCode().declaration(false);
 
     if(_options.hasAddr) {
-        oStream << GenAddrDecl().Declaration() << endl;
+        out << addrDecl().declaration();
     }
 
     for(auto var : _enumDeclarations) {
-        oStream << var.Declaration() << endl;
+        out << var.declaration();
     }
 
+    out << _header.declaration();
     for(auto var : _structDeclarations) {
-        oStream << var.Declaration() << endl;
+        out << var.declaration();
     }
 
-    oStream << fmt("typedef struct %s %s;\n",
-    {ProtoObj().GetName(), toLower(_fName) + "_Obj"}) << endl;
+    out << fmt("typedef struct %s %s;\n",
+    {protoObj().getName(), toLower(_fName) + "_Obj"});
 
-    oStream << CbsStruct().Declaration() << endl;
-    oStream << ProtoObj().Declaration() << endl;
+    out << cbsStruct().declaration();
+    out << protoObj().declaration();
 
-    oStream<<"/* senders */"<< endl;
+    out <<"/* senders */";
     for(auto rdm :_rdms) {
-        oStream << _handlerGen->SendMsgFun(rdm).Declaration() << endl;
+        out << _handlerGen->sendMsgFun(rdm).declaration();
     }
 
-    oStream << endl;
-    oStream << ResetCbsFun().Declaration() << endl;
-    oStream << SetCbsFun().Declaration() << endl;
-    oStream << InitProtoFun().Declaration() << endl;
-    oStream << _handlerGen->ParseFun(_rdms).Declaration() << endl;
+    out << "";
+    out << resetCbsFun().declaration();
+    out << setCbsFun().declaration();
+    out << initProtoFun().declaration();
+    out << _handlerGen->parseFun(_rdms).declaration();
 
-    oStream << "#endif" << endl;
-    oStream.close();
+    out << "#endif";
 }
 
-void CodeGenerator::GenerateHeaderQt()
+void CodeGenerator::generateCppHeader()
 {
+    const auto& qt = _options.isQt;
+    const auto& ip = _options.hasAddr;
+
     ofstream oStream;
-    oStream.open(toUpper(_fName) + ".h");
-    oStream << GetVersion();
-    oStream << fmt("#ifndef %s_H", {toUpper(_fName)}) << endl;
-    oStream << fmt("#define %s_H", {toUpper(_fName)}) << endl;
-    oStream << endl;
-    oStream << "#include <stdint.h>" << endl;
-    oStream << "#include <QObject>" << endl;
-    oStream << "#include <vector>" << endl;
+    oStream.open(_fName + ".h");
+    AutoEndlStream out(oStream);
 
-    if(_options.hasAddr)
-        oStream << "#include <QHostAddress>" << endl;
+    out << getVersion();
+    out << fmt("#ifndef %s_H", {toUpper(_fName)});
+    out << fmt("#define %s_H", {toUpper(_fName)});
+    out << "";
+    out << "#include <memory>";
+    out << "#include <vector>";
+    out << "#include <cstdint>";
 
-    oStream << endl;
-    oStream << fmt("namespace %sSpace{\n", {_fName});
-    oStream << endl;
-
-    oStream << EnumErrorCode().Declaration(false) << endl;
-
-    if(_options.hasAddr)
-        oStream << GenAddrDecl().Declaration();
-
-    oStream << endl;
-
-    if(!LocalParams().GetFields().empty()) {
-        oStream << LocalParams().Declaration();
+    if(qt)
+    {
+        out << "#include <QObject>";
+        if(ip){ out << "#include <QHostAddress>"; }
+    } else {
+        out << "#include <functional>";
     }
 
-    oStream << endl;
+    out << fmt("namespace %sSpace{", {_fName});
+
+    out << _stdTypeHandler.bitfieldArrayTypes();
+    out << enumErrorCode().declaration(false);
+
+    if(_options.hasAddr)
+        out << addrDecl().declaration();
+
+    if(!localParams().getFields().empty()) {
+        out << localParams().declaration();
+    }
     for(auto var : _enumDeclarations) {
-        oStream << var.Declaration() << endl;
+        out << var.declaration();
+    }
+
+    out << _header.declaration();
+    for(auto var : _structDeclarations) {
+        out << var.declaration();
     }
 
     for(auto var : _structDeclarations) {
-        oStream << var.Declaration() << endl;
+        out << var.compareFun().declaration();
+    }
+    out << "";
+    out << "class Base;";
+    out << "class " + _fName + (qt ? ": public QObject" : "");
+    out << "{";
+    if(qt){ out << "\tQ_OBJECT"; }
+    out << (!qt ? "public:\n\t// " : ""s) + "signals:";
+
+    const auto sig = "std::function";
+    for(auto rdm :_rdms)
+    {
+        if(qt)
+        {
+            out << "\t" + _handlerGen->receiveMsgCb(rdm).declaration();
+        } else
+        {
+            auto signal = _handlerGen->receiveMsgCb(rdm).pointerWrapper(sig);
+            out << fmt("\t%s %s;", {signal.type, signal.name});
+        }
     }
 
-    for(auto var : _structDeclarations) {
-        oStream << var.CompareFun().Declaration() << endl;
-    }
-    oStream << endl;
-
-    oStream << "class Base;" << endl;
-    oStream << "class " + _fName + ": public QObject" << endl;
-    oStream << "{" << endl;
-    oStream << "\tQ_OBJECT" << endl;
-    oStream << "signals:" << endl;
-
-    for(auto rdm :_rdms) {
-        _handlerGen->ReceiveMsgCb(rdm).SetExternDeclaration(false);
-        oStream << "\t" + _handlerGen->ReceiveMsgCb(rdm).Declaration() << endl;
+    if(qt)
+    {
+        out << "\t" + _handlerGen->checkHeaderCb().declaration();
+        out << "\t" + _handlerGen->sendCb().declaration();
+    } else
+    {
+        auto sigCheck = _handlerGen->checkHeaderCb().pointerWrapper(sig);
+        out << fmt("\t%s %s;", {sigCheck.type, sigCheck.name});
+        auto sigSend = _handlerGen->sendCb().pointerWrapper(sig);
+        out << fmt("\t%s %s;", {sigSend.type, sigSend.name});
     }
 
-    oStream << "\t" + _handlerGen->SendCb().Declaration() << endl;
-    oStream << endl;
-    oStream << "public:" << endl;
-    oStream << "\t/* senders */" << endl;
+    out << "";
+    if(qt){ out << "public:"; }
+    out << "\t// senders:";
     for(auto rdm : _rdms) {
-        oStream << "\t" + _handlerGen->SendMsgFun(rdm).Declaration() << endl;
+        out << "\t" + _handlerGen->sendMsgFun(rdm).declaration();
     }
 
-    oStream << endl;
-    oStream << "\t" + InitProtoFun().Declaration() << endl;
+    out << "";
+    out << "\t" + initProtoFun().declaration();
 
-    if(!LocalParams().GetFields().empty()) {
-        oStream << "\t" + LocalParamsFun().Declaration() << endl;
+    if(!localParams().getFields().empty()) {
+        out << "\t" + localParamsFun().declaration();
     }
 
-    oStream << "\t" + _handlerGen->ParseFun(_rdms).Declaration() << endl;
-    oStream << "\t" + _fName + "(QObject *parent = nullptr);";
-    oStream << endl;
+    out << "\t" + _handlerGen->parseFun(_rdms).declaration();
+    out << fmt("\t%s(%s);", {_fName, qt ? "QObject *parent = nullptr" : ""});
+    if(!qt){ out << fmt("\t~%s();", {_fName}); };
 
-    if(_options.hasAddr) {
-        oStream << "\tusing addr_t = Addr;" << endl;
-    }
+    if(ip) { out << "\tusing addr_t = Addr;"; }
 
-    oStream << "\nprivate:" << endl;
-    oStream << "\tBase* base;" << endl;
-    oStream << "};" << endl;
-    oStream << "}//end namespace" << endl << endl;
-    oStream << "#endif" << endl;
-    oStream.close();
+    out << "private:";
+    if(qt) {out << "\tBase* base;";}
+    else { out << "\tstd::unique_ptr<Base> base;"; }
+
+    out << "};";
+    out << "}//end namespace";
+    out << "#endif";
 }
 
-void CodeGenerator::GenerateSource()
+void CodeGenerator::generateSource()
 {
     ofstream oStream;
-    oStream.open(toUpper(_fName) + ".c");
-    oStream << GetVersion();
-    oStream << "#include <string.h>" << endl;
-    oStream << fmt("#include \"%s.h\"\n", {_fName});
+    oStream.open(_fName + ".c");
+    AutoEndlStream out(oStream);
 
-    oStream << endl;
-    oStream << MemoryManager();
-    oStream << endl;
-    oStream << CalcSizeHelper::CSizeDef();
-    oStream << endl;
-    oStream << InitProtoFun().Definition();
-    oStream << endl;
-    oStream << _header.Declaration();
-    oStream << endl;
-    oStream << _header.SerDesDefinition(FunType::Ser);
+    out << getVersion();
+    out << "#include <string.h>";
+    out << fmt("#include \"%s.h\"", {_fName});
 
-    oStream << _header.SerDesDefinition(FunType::Des);
+    out << MemoryManager;
+
+    if(bitcpyUsed)
+    {
+        out << BitMaskFun;
+        out << MinFun;
+        out << BitCpyFun;
+    }
+    if(bitcpyaUsed)
+    {
+        out << BitCpyAlignedFun;
+    }
+
+    out << "";
+    out << CalcSizeHelper::cSizeDef();
+    out << initProtoFun().definition();
+    out << _header.serdesDefinition(FunType::Ser);
+
+    out << _header.serdesDefinition(FunType::Des);
 
     for(auto var : _structDeclarations)
     {
-        oStream << var.SerDesDefinition(FunType::Ser);
-        oStream << var.SerDesDefinition(FunType::Des);
-        oStream << var.SizeCalcFun(FunType::Ser);
-        oStream << var.SizeCalcFun(FunType::Des);
+        out << var.serdesDefinition(FunType::Ser);
+        out << var.serdesDefinition(FunType::Des);
+        out << var.sizeCalcFun(FunType::Ser);
+        out << var.sizeCalcFun(FunType::Des);
     }
 
     for( auto& rdm: _rdms) {
-        oStream << _handlerGen->SendMsgFun(rdm).Definition();
+        out << _handlerGen->sendMsgFun(rdm).definition();
     }
 
-    oStream << endl;
-    oStream << SetCbsFun().Definition();
-    oStream << ResetCbsFun().Definition();
-    oStream << _handlerGen->ParseFun(_rdms).Definition();
-
-    oStream.close();
+    out << setCbsFun().definition();
+    out << resetCbsFun().definition();
+    out << _handlerGen->parseFun(_rdms).definition();
 }
 
-void CodeGenerator::GenerateSourceQt()
+void CodeGenerator::generateCppSource()
 {
+    auto qt = _options.isQt;
+
     ofstream oStream;
-    oStream.open(toUpper(_fName) + ".cpp");
-    oStream << GetVersion();
-    oStream << "#include <memory>" << endl;
-    oStream << "#include <string.h>" << endl;
-    oStream << fmt("#include \"%s.h\"", {_fName}) << endl;
-    oStream << fmt("namespace %sSpace \n{\n", {_fName});
+    oStream.open(_fName + ".cpp");
+    AutoEndlStream out(oStream);
 
-    oStream << endl;
-    oStream << CalcSizeHelper::CSizeDef();
-    oStream << endl;
+    out << getVersion();
+    if(qt) {out << "#include <QMetaMethod>";}
+    out << "#include <string.h>";
+    out << fmt("#include \"%s.h\"", {_fName});
+    out << fmt("namespace %sSpace \n{", {_fName});
 
+    if(bitcpyUsed)
+    {
+        out << BitMaskFun;
+        out << MinFun;
+        out << BitCpyFun;
+    }
+    if(bitcpyaUsed)
+    {
+        out << BitCpyAlignedFun;
+    }
+
+    out << "";
+    out << CalcSizeHelper::cSizeDef();
 
     for(auto var : _structDeclarations) {
-        oStream << var.CompareFun().Definition();
-        oStream << endl;
-    }
-    oStream << endl;
-
-    oStream << _header.Declaration();
-    oStream << endl;
-    oStream << "class Base: QObject\n{" << endl;
-    oStream << "public:" << endl;
-    oStream << "Base(QObject *parent = nullptr):QObject(parent){}" << endl;
-
-    for(auto field: LocalParams().GetFields()) {
-        oStream << fmt("%s %s;", {field.type, field.name}) << endl;
+        out << var.compareFun().definition();
     }
 
-    oStream << endl;
-    oStream << _header.SerDesDefinition(FunType::Ser, false);
-    oStream << _header.SerDesDefinition(FunType::Des, false);
+    out << "class Base" + (qt ? ": QObject" : ""s) + "\n{";
+    out << "public:";
+    if(qt){ out << "Base(QObject *parent = nullptr):QObject(parent){}"; }
+
+    for(auto field: localParams().getFields()) {
+        out << fmt("%s %s;", {field.type, field.name});
+    }
+
+    out << "";
+    out << _header.serdesDefinition(FunType::Ser, false);
+    out << _header.serdesDefinition(FunType::Des, false);
     for(auto var : _structDeclarations)
     {
-        oStream << var.SerDesDefinition(FunType::Ser, false);
-        oStream << var.SerDesDefinition(FunType::Des, false);
-        oStream << var.SizeCalcFun(FunType::Ser, false);
-        oStream << var.SizeCalcFun(FunType::Des, false);
+        out << var.serdesDefinition(FunType::Ser, false);
+        out << var.serdesDefinition(FunType::Des, false);
+        out << var.sizeCalcFun(FunType::Ser, false);
+        out << var.sizeCalcFun(FunType::Des, false);
     }
-    oStream << "};" << endl; //end Base class
+    out << "};"; //end Base class
 
-    oStream << InitProtoFun().Definition();
+    out << initProtoFun().definition();
 
-    if(!LocalParams().GetFields().empty())
-        oStream << LocalParamsFun().Definition();
+    if(!localParams().getFields().empty())
+        out << localParamsFun().definition();
 
-    oStream << endl;
+    out << "";
 
     for( auto& rdm: _rdms) {
-        oStream << _handlerGen->SendMsgFun(rdm).Definition();
+        out << _handlerGen->sendMsgFun(rdm).definition();
     }
 
-    oStream << _handlerGen->ParseFun(_rdms).Definition();
+    out << _handlerGen->parseFun(_rdms).definition();
 
-    oStream << fmt("%s::%s(QObject *parent):QObject(parent)", {_fName, _fName});
-    oStream << "\n{" << "\n\tbase = new Base(this);" << "\n}";
-
-    oStream << "\n}\n"; //end namespace
-    oStream.close();
+    if(qt)
+    {
+        out << fmt("%s::%s(QObject *parent):QObject(parent)", {_fName, _fName});
+        out << "{" << "\tbase = new Base(this);" << "}";
+    } else
+    {
+        out << fmt("%s::%s()", {_fName, _fName});
+        out << "{" << "\tbase = std::unique_ptr<Base>(new Base);" << "}";
+        out << fmt("%s::~%s() = default;", {_fName, _fName});
+    }
+    out << "}"; //end namespace
 }
 
-vector<string> CodeGenerator::MemoryManager()
-{
-    vector<string> strings;
-
-    strings << "static char* buf_p;";
-
-    Function fun;
-    fun.SetStaticDeclaration(true);
-    fun.SetDeclaration("allocate", "char*", Parameter{"size_t", "size"});
-
-    vector<string> body;
-
-    body << "char* tmp = buf_p;"
-         << "buf_p += size;"
-         << "return tmp;";
-
-    fun.SetBody(body);
-
-    strings << fun.Definition();
-
-    return strings;
-}
-
-Function CodeGenerator::InitProtoFun()
+Function CodeGenerator::initProtoFun()
 {
     Function initFun;
     vector<string> body;
 
-    auto params = _handlerGen->GetHeaderParams({"local"});
+    auto params = _handlerGen->getHeaderParams({"local"});
 
-    initFun.SetDeclaration(fmt("%{%s_}init", {_options.isCpp ? "" : toLower(_fName)}),
+    initFun.setDeclaration(fmt("%{%s_}init", {_options.isCpp ? "" : toLower(_fName)}),
                            _options.isCpp ? "void" : toLower(_fName) + "_Obj",
                            params);
 
     if(!_options.isCpp) {
-        body << fmt("%s obj;", {toLower(_fName) + "_Obj"});
+        body << fmt("%s obj = {0};", {toLower(_fName) + "_Obj"});
     }
 
     for(auto &param : params)
@@ -483,138 +536,123 @@ Function CodeGenerator::InitProtoFun()
 
     if(!_options.isCpp) { body << "return obj;"; }
 
-    initFun.SetBody(body);
-    if(_options.isCpp) { initFun.SetContainedClass(_fName); }
+    initFun.setBody(body);
+    if(_options.isCpp) { initFun.setContainedClass(_fName); }
 
     return initFun;
 }
 
-StructCpp CodeGenerator::ProtoObj()
+StructCpp CodeGenerator::protoObj()
 {
     StructCpp protoObj;
-     protoObj.SetName(fmt("_%s_Obj", {toLower(_fName)}));
+     protoObj.setName(fmt("_%s_Obj", {toLower(_fName)}));
 
-    auto params = _handlerGen->GetHeaderParams({"local"});
+    auto params = _handlerGen->getHeaderParams({"local"});
 
     for(auto& param : params) {
-        protoObj.AddField({param.type, param.name});
+        protoObj.addField({param.type, param.name});
     }
 
-    protoObj.AddField({CbsStruct().GetName(), "_CBsStruct"});
+    protoObj.addField({cbsStruct().getName(), "_CBsStruct"});
 
     return protoObj;
 }
 
-Function CodeGenerator::SetCbsFun()
+Function CodeGenerator::setCbsFun()
 {
     Function setCbsFun;
     std::vector<Parameter> params;
 
     params += {toLower(_fName) + "_Obj", "*obj"};
     params += {fmt("%s_CBsStruct", {toLower(_fName)}), "*str"};
-    setCbsFun.SetDeclaration(toLower(_fName) + "_setCBs", "void", params);
+    setCbsFun.setDeclaration(toLower(_fName) + "_setCBs", "void", params);
 
     vector<string> body;
     for(auto rdm :_rdms) {
-        auto cbName = _handlerGen->ReceiveMsgCb(rdm).FunctionName();
+        auto cbName = _handlerGen->receiveMsgCb(rdm).name();
         body << fmt("obj->_CBsStruct.%s = str->%s;", {cbName, cbName});
     }
 
-    auto sendCbName = _handlerGen->SendCb().FunctionName();
+    auto checkHeaderCb = _handlerGen->checkHeaderCb().name();
+    body << fmt("obj->_CBsStruct.%s = str->%s;", {checkHeaderCb, checkHeaderCb});
+    auto sendCbName = _handlerGen->sendCb().name();
     body << fmt("obj->_CBsStruct.%s = str->%s;", {sendCbName, sendCbName});
 
-    setCbsFun.SetBody(body);
+    setCbsFun.setBody(body);
 
     return setCbsFun;
 }
 
-Function CodeGenerator::ResetCbsFun()
+Function CodeGenerator::resetCbsFun()
 {
     Function resetCbsFun;
-    resetCbsFun.SetDeclaration(toLower(_fName) +"_resetCBs", "void", {
+    resetCbsFun.setDeclaration(toLower(_fName) +"_resetCBs", "void", {
                                    toLower(_fName) + "_Obj", "*obj"});
 
     vector<string> body;
     for(auto rdm :_rdms) {
-        body << "obj->_CBsStruct." + _handlerGen->ReceiveMsgCb(rdm).FunctionName() + " = 0;";
+        body << "obj->_CBsStruct." + _handlerGen->receiveMsgCb(rdm).name() + " = 0;";
     }
-    body << "obj->_CBsStruct." + _handlerGen->SendCb().FunctionName() + " = 0;";
+    body << "obj->_CBsStruct." + _handlerGen->checkHeaderCb().name() + " = 0;";
+    body << "obj->_CBsStruct." + _handlerGen->sendCb().name() + " = 0;";
 
-    resetCbsFun.SetBody(body);
+    resetCbsFun.setBody(body);
 
     return resetCbsFun;
 }
 
-StructCpp CodeGenerator::CbsStruct()
+StructCpp CodeGenerator::cbsStruct()
 {
     StructCpp cbsStruct;
 
-    cbsStruct.SetName(toLower(_fName) + "_CBsStruct");
-    cbsStruct.SetTypeDef(true);
+    cbsStruct.setName(toLower(_fName) + "_CBsStruct");
+    cbsStruct.setTypeDef(true);
 
     for(auto rdm :_rdms) {
-        auto param = _handlerGen->ReceiveMsgCb(rdm).FunctionPointer();
-        cbsStruct.AddField({param.type, param.name});
+        auto param = _handlerGen->receiveMsgCb(rdm).pointer();
+        cbsStruct.addField({param.type, param.name});
     }
-    auto param = _handlerGen->SendCb().FunctionPointer();
-    cbsStruct.AddField({param.type, param.name});
+    auto checkHeaderParam = _handlerGen->checkHeaderCb().pointer();
+    cbsStruct.addField({checkHeaderParam.type, checkHeaderParam.name});
+    auto sendParam = _handlerGen->sendCb().pointer();
+    cbsStruct.addField({sendParam.type, sendParam.name});
 
     return cbsStruct;
 }
 
-StructCpp CodeGenerator::LocalParams()
+StructCpp CodeGenerator::localParams()
 {
     StructCpp localParams;
-    localParams.SetName("LocalParams");
+    localParams.setName("LocalParams");
 
-    for(auto& param : _handlerGen->GetHeaderParams({"local"})) {
-        localParams.AddField({param.type, param.name});
+    for(auto& param : _handlerGen->getHeaderParams({"local"})) {
+        localParams.addField({param.type, param.name});
     }
 
     return localParams;
 }
 
-Function CodeGenerator::LocalParamsFun()
+Function CodeGenerator::localParamsFun()
 {
     Function localParamsFun;
-    auto localParams = LocalParams();
+    StructCpp params = localParams();
 
-    localParamsFun.SetDeclaration("GetLocalParams", localParams.GetName());
-    localParamsFun.SetContainedClass(_fName);
+    localParamsFun.setDeclaration("GetLocalParams", params.getName());
+    localParamsFun.setContainedClass(_fName);
 
 
     vector<string> body;
     string var = "buf";
-    body << fmt("%s %s;", {localParams.GetName(), var});
+    body << fmt("%s %s;", {params.getName(), var});
 
-    for (auto field : localParams.GetFields()) {
+    for (auto field : params.getFields()) {
         body << fmt("%s.%s = %s%s;", {var, field.name,
                                       _options.isCpp ? "base->" : "",
                                       field.name});
     }
     body << fmt("return %s;", {var});
 
-    localParamsFun.SetBody(body);
+    localParamsFun.setBody(body);
 
     return localParamsFun;
-}
-
-pair<string,size_t> CodeGenerator::ConvertToCStdType(string slpdType)
-{
-    if(slpdType ==  "char")  return {"char",1};
-    if(slpdType ==  "s8")  return {"int8_t",1};
-    if(slpdType ==  "s16") return {"int16_t",2};
-    if(slpdType ==  "s32") return {"int32_t",4};
-    if(slpdType ==  "s64") return {"int64_t",8};
-    if(slpdType ==  "i8")  return {"int8_t",1};
-    if(slpdType ==  "i16") return {"int16_t",2};
-    if(slpdType ==  "i32") return {"int32_t",4};
-    if(slpdType ==  "i64") return {"int64_t",8};
-    if(slpdType ==  "u8")  return {"uint8_t",1};
-    if(slpdType ==  "u16") return {"uint16_t",2};
-    if(slpdType ==  "u32") return {"uint32_t",4};
-    if(slpdType ==  "u64") return {"uint64_t",8};
-    if(slpdType ==  "f32") return {"float",4};
-    if(slpdType ==  "f64") return {"double",8};
-    throw invalid_argument("ConvertTo_C_stdType: received not std type");
 }

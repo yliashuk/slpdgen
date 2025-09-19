@@ -18,32 +18,32 @@ namespace CppConstructs
     {
     public:
         Function();
-        void SetDeclaration(string functionName, string returnType,vector<Parameter> parameters);
-        void SetDeclaration(string functionName, string returnType, Parameter parameter);
-        void SetDeclaration(string functionName, string returnType);
+        void setDeclaration(string functionName, string returnType,vector<Parameter> parameters);
+        void setDeclaration(string functionName, string returnType, Parameter parameter);
+        void setDeclaration(string functionName, string returnType);
 
-        void SetExternDeclaration(bool enable);
-        void SetStaticDeclaration(bool enable);
+        void setExtern(bool enable);
+        void setStatic(bool enable);
 
-        string FunctionName() const;
+        string name() const;
 
-        Parameter FunctionPointer() const;
-        string FunctionPointerDeclaration() const;
+        Parameter pointer() const;
+        Parameter pointerWrapper(string wrapperName) const;
 
-        vector<string> Definition() const;
+        vector<string> definition() const;
 
-        string GetCall(vector<string> argumentNames, bool isPointer) const;
-        string GetCall(vector<Parameter> argumentNames) const;
-        string GetCall() const;
+        string getCall(vector<string> argumentNames) const;
+        string getCall(vector<Parameter> argumentNames) const;
+        string getCall() const;
 
-        vector<Parameter> GetParameters() const;
+        vector<Parameter> getParameters() const;
 
-        void SetBody(vector<string> body);
+        void setBody(vector<string> body);
 
-        string Declaration() const;
+        string declaration() const;
 
-        void SetContainedClass(string name);
-        void ResetContainedClass();
+        void setContainedClass(string name);
+        void resetContainedClass();
 
     private:
          enum class ParameterStringType {Call, DeclAndDef};
@@ -53,13 +53,13 @@ namespace CppConstructs
          bool _hasStatic {};
 
         string _containedClass;
-        string _functionName;
+        string _name;
         string _returnType;
         vector<Parameter> _parameters;
         vector<string> _body;
 
-        string GetSignature(SignatureType type) const;
-        string GetParametersString(ParameterStringType type) const;
+        string getSignature(SignatureType type) const;
+        string getParametersString(ParameterStringType type) const;
     };
 }
 

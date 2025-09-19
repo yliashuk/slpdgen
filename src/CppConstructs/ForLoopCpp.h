@@ -11,9 +11,9 @@ namespace CppConstructs
     {
     public:
         ForLoopCpp();
-        void SetDeclaration(string init, string condition, string increment);
-        void SetBody(vector<string> body);
-        vector<string> Definition() const;
+        void setDeclaration(string init, string condition, string increment);
+        void setBody(vector<string> body);
+        vector<string> definition() const;
 
     private:
         string _init;

@@ -8,7 +8,7 @@
 
 Formater formater;
 string currBlockName;
-DataStructType strT;
+StructType strT;
 EnumType enmType;
 
 bool errorState = false;
@@ -95,7 +95,7 @@ s_base_contents:
          KW_HEADER WORD ST_BLOCK
          {
             strT = Hdr; currBlockName = $2;
-            auto status = formater.AddStructDeclaration(strT,currBlockName);
+            auto status = formater.addStructDeclaration(strT,currBlockName);
             errorPrint(status);
          }
          data_struct_field_parse_input
@@ -103,7 +103,15 @@ s_base_contents:
        | KW_TYPE WORD ST_BLOCK
          {
              enmType = Tp; currBlockName = $2;
-             auto status = formater.AddEnumDeclaration(enmType,currBlockName);
+             auto status = formater.addEnumDeclaration(enmType,currBlockName);
+             errorPrint(status);
+         }
+         enum_field_parse_input
+         END_BLOCK
+       | KW_TYPE WORD COLON WORD ST_BLOCK
+         {
+             enmType = Tp; currBlockName = $2;
+             auto status = formater.addEnumDeclaration(enmType,currBlockName, GetNum($4));
              errorPrint(status);
          }
          enum_field_parse_input
@@ -111,7 +119,15 @@ s_base_contents:
        | KW_CODE WORD ST_BLOCK
          {
              enmType = Cd; currBlockName = $2/*.str*/;
-             auto status = formater.AddEnumDeclaration(enmType, currBlockName);
+             auto status = formater.addEnumDeclaration(enmType, currBlockName);
+             errorPrint(status);
+         }
+         enum_field_parse_input
+         END_BLOCK
+       | KW_CODE WORD COLON WORD ST_BLOCK
+         {
+             enmType = Cd; currBlockName = $2/*.str*/;
+             auto status = formater.addEnumDeclaration(enmType, currBlockName, GetNum($4));
              errorPrint(status);
          }
          enum_field_parse_input
@@ -123,7 +139,7 @@ s_definitions_contents:
                KW_STRUCT WORD ST_BLOCK
                {
                    strT = SmplStr;currBlockName = $2;
-                   auto status = formater.AddStructDeclaration(strT, $2);
+                   auto status = formater.addStructDeclaration(strT, $2);
                    errorPrint(status);
                }
                data_struct_field_parse_input
@@ -131,7 +147,15 @@ s_definitions_contents:
              | KW_ENUM WORD ST_BLOCK
                {
                    enmType = SmplEnm;currBlockName = $2;
-                   auto status = formater.AddEnumDeclaration(enmType, $2);
+                   auto status = formater.addEnumDeclaration(enmType, $2);
+                   errorPrint(status);
+               }
+               enum_field_parse_input
+               END_BLOCK
+             | KW_ENUM WORD COLON WORD ST_BLOCK
+               {
+                   enmType = SmplEnm;currBlockName = $2;
+                   auto status = formater.addEnumDeclaration(enmType, $2, GetNum($4));
                    errorPrint(status);
                }
                enum_field_parse_input
@@ -144,7 +168,7 @@ s_messages_contents:
                {
                     strT = Pckt;
                     currBlockName = $1;
-                    auto status = formater.AddStructDeclaration(strT, $1);
+                    auto status = formater.addStructDeclaration(strT, $1);
                     errorPrint(status);
                 }
                data_struct_field_parse_input
@@ -163,54 +187,54 @@ data_struct_field_parse_input:
 data_struct_field_parse:
             WORD WORD
             {
-                auto dataStruct = FieldInfoBuilder().SetCommon($1, $2).Build();
-                auto status = formater.AddStructField(strT, currBlockName, *dataStruct);
+                auto dataStruct = FieldInfoBuilder().setCommon($1, $2).build();
+                auto status = formater.addStructField(strT, currBlockName, *dataStruct);
                 errorPrint(status);
             }
           | WORD WORD LSQB WORD RSQB
             {
                 uint64_t var = GetNum($4);
                 unique_ptr<FieldInfo> dataStruct;
-                auto builder = FieldInfoBuilder().SetCommon($1, $2);
+                auto builder = FieldInfoBuilder().setCommon($1, $2);
                 if(var)
-                    dataStruct = builder.SetLenDefiningVar(var).Build();
+                    dataStruct = builder.setArraySize(var).build();
                 else
-                    dataStruct = builder.SetLenDefiningVar($4).Build();
-                auto status = formater.AddStructField(strT, currBlockName, *dataStruct);
+                    dataStruct = builder.setArraySize($4).build();
+                auto status = formater.addStructField(strT, currBlockName, *dataStruct);
                 errorPrint(status);
             }
           | WORD WORD EQUAL WORD
             {
-                auto dataStruct = FieldInfoBuilder().SetCommon($1, $2)
-                                                    .SetDefaultVal(GetNum($4))
-                                                    .Build();
-                auto status = formater.AddStructField(strT, currBlockName, *dataStruct);
+                auto dataStruct = FieldInfoBuilder().setCommon($1, $2)
+                                                    .setInitValue(GetNum($4))
+                                                    .build();
+                auto status = formater.addStructField(strT, currBlockName, *dataStruct);
                 errorPrint(status);
             }
           | WORD WORD EQUAL LOCAL
             {
-                    auto dataStruct = FieldInfoBuilder().SetCommon($1, $2)
-                                                        .SetSpecialType("local")
-                                                        .Build();
-                    auto status = formater.AddStructField(strT, currBlockName,
+                    auto dataStruct = FieldInfoBuilder().setCommon($1, $2)
+                                                        .setSpecialType("local")
+                                                        .build();
+                    auto status = formater.addStructField(strT, currBlockName,
                                                            *dataStruct);
                     errorPrint(status);
             }
           | WORD WORD EQUAL REMOTE
             {
-                    auto dataStruct = FieldInfoBuilder().SetCommon($1, $2)
-                                                        .SetSpecialType("remote")
-                                                        .Build();
-                    auto status = formater.AddStructField(strT, currBlockName,
+                    auto dataStruct = FieldInfoBuilder().setCommon($1, $2)
+                                                        .setSpecialType("remote")
+                                                        .build();
+                    auto status = formater.addStructField(strT, currBlockName,
                                                            *dataStruct);
                     errorPrint(status);
             }
           | WORD WORD COLON FROM WORD TO WORD
             {
-                auto dataStruct = FieldInfoBuilder().SetCommon($1, $2)
-                                                    .SetValRange(GetNum($5), (uint64_t)GetNum($7))
-                                                    .Build();
-                auto status = formater.AddStructField(strT, currBlockName, *dataStruct);
+                auto dataStruct = FieldInfoBuilder().setCommon($1, $2)
+                                                    .setValRange(GetNum($5), (uint64_t)GetNum($7))
+                                                    .build();
+                auto status = formater.addStructField(strT, currBlockName, *dataStruct);
             }
 
 
@@ -219,12 +243,13 @@ enum_field_parse_input:
 enum_field_parse:
             WORD
             {
-                auto status = formater.AddEnumField(enmType,currBlockName, $1);
+                auto status = formater.addEnumField(enmType,currBlockName, $1);
                 errorPrint(status);
             }
           | WORD EQUAL WORD
             {
-                formater.AddEnumField(enmType,currBlockName, $1, GetNum($3));
+                auto status = formater.addEnumField(enmType,currBlockName, $1, GetNum($3));
+                errorPrint(status);
             }
 
 
@@ -235,7 +260,7 @@ rules_parse:
             {
                 Rule rule = RuleBuilder().command($3).sendType($5).build();
 
-                auto status = formater.AddRule(rule);
+                auto status = formater.addRule(rule);
                 errorPrint(status);    
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE NONE
@@ -243,7 +268,7 @@ rules_parse:
                 Rule rule = RuleBuilder().command($3).sendType($5).
                         sendPacket($6).build();
 
-                auto status = formater.AddRule(rule);
+                auto status = formater.addRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD EMPTY THEREFORE WORD EMPTY
@@ -251,7 +276,7 @@ rules_parse:
                 Rule rule = RuleBuilder().command($3).sendType($5).
                         responseType($8).build();
 
-                auto status = formater.AddRule(rule);
+                auto status = formater.addRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD EMPTY
@@ -259,7 +284,7 @@ rules_parse:
                 Rule rule = RuleBuilder().command($3).sendType($5).sendPacket($6).
                         responseType($8).build();
 
-                auto status = formater.AddRule(rule);
+                auto status = formater.addRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD EMPTY THEREFORE WORD WORD
@@ -267,7 +292,7 @@ rules_parse:
                 Rule rule = RuleBuilder().command($3).sendType($5).responseType($8).
                         responsePacket($9).build();
 
-                auto status = formater.AddRule(rule);
+                auto status = formater.addRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD WORD
@@ -275,7 +300,7 @@ rules_parse:
                 Rule rule = RuleBuilder().command($3).sendType($5).sendPacket($6).responseType($8).
                         responsePacket($9).build();
 
-                auto status = formater.AddRule(rule);
+                auto status = formater.addRule(rule);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD EMPTY THEREFORE WORD EMPTY REVERSE
@@ -286,7 +311,7 @@ rules_parse:
                 Rule rule = RuleBuilder().command($3).sendType($5).
                         responseType($8).build();
 
-                auto status = formater.AddRule(rule, true);
+                auto status = formater.addRule(rule, true);
                 errorPrint(status);
             }
           | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD EMPTY REVERSE
@@ -294,14 +319,9 @@ rules_parse:
                 Rule rule = RuleBuilder().command($3).sendType($5).sendPacket($6).
                         responseType($8).build();
 
-                auto status = formater.AddRule(rule, true);
+                auto status = formater.addRule(rule, true);
                 errorPrint(status);
             }
-//          | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD WORD REVERSE
-//            {
-//                auto status = formater.addRule($3/*.str*/,$5/*.str*/,$6/*.str*/,string($8/*.str*/),string($9/*.str*/),true);
-//                errorPrint(status);
-//            }
 
 %%
 
@@ -334,8 +354,8 @@ void errorPrint(ComplexStatus s)
                  << ", line:"<<curr_line<<endl;
         break;
         case FieldNameNotContained:
-            cout << "Struct " << '"' << s.wrongName << '"'
-                 << " is not contained in the " << '"' << currBlockName << '"'
+            cout << "Undefined field " << '"' << s.wrongName << '"'
+                 << " in the " << '"' << currBlockName << '"'
                  << ", line:"<<curr_line<<endl;
         break;
         case DefiningVarNotContained:
@@ -343,6 +363,11 @@ void errorPrint(ComplexStatus s)
                  << " does not contain the definition of the length-determining "
                     "variable in the " << '"' << currBlockName << '"' << ", line:"
                  << curr_line<<endl;
+        break;
+        case ValueOutOfRange:
+            cout << "Field " << '"' << s.wrongName << '"'
+                 << " has a value exceeding the enum size "
+                 << '"' << currBlockName << '"' << endl;
         break;
         case Ok:
         break;

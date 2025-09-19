@@ -8,22 +8,22 @@ using namespace std;
 namespace CppConstructs
 {
 
-    enum class IfElseStructure
+    enum class ConditionType
     {
         If,
         IfElse
     };
 
-    class IfElseStatementCpp
+    class ConditionCpp
     {
     public:
-        IfElseStatementCpp();
-        IfElseStatementCpp &AddCase(string statement, vector<string> content);
-        IfElseStatementCpp &AddCase(string statement, string content);
+        ConditionCpp();
+        ConditionCpp &addCase(string statement, vector<string> content);
+        ConditionCpp &addCase(string statement, string content);
 
-        vector<string> GetDefinition(IfElseStructure structure = IfElseStructure::If) const;
+        vector<string> definition(ConditionType structure = ConditionType::If) const;
 
-        void Clear();
+        void clear();
 
     private:
         vector<pair<string,vector<string>>> _caseContent;

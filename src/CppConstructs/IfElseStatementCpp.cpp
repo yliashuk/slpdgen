@@ -1,16 +1,16 @@
 #include "IfElseStatementCpp.h"
 #include "Utils/StringUtils.h"
 
-using CppConstructs::IfElseStatementCpp;
+using CppConstructs::ConditionCpp;
 
-IfElseStatementCpp::IfElseStatementCpp(){}
+ConditionCpp::ConditionCpp(){}
 
-IfElseStatementCpp& IfElseStatementCpp::AddCase(string statement, vector<string> content)
+ConditionCpp& ConditionCpp::addCase(string statement, vector<string> content)
 {
     this->_caseContent.push_back({statement,content});
     return  *this;
 }
-IfElseStatementCpp& IfElseStatementCpp::AddCase(string statement, string content)
+ConditionCpp& ConditionCpp::addCase(string statement, string content)
 {
     vector<string> buffer;
     buffer.push_back(content);
@@ -18,14 +18,15 @@ IfElseStatementCpp& IfElseStatementCpp::AddCase(string statement, string content
     return *this;
 }
 
-vector<string> IfElseStatementCpp::GetDefinition(IfElseStructure structure) const
+vector<string> ConditionCpp::definition(ConditionType structure) const
 {
     vector<string> content;
     if(this->_caseContent.empty()) return content;
 
     for(const auto &var: _caseContent)
     {
-        if(_caseContent.front() == var || structure == IfElseStructure::If) {
+        if(_caseContent.front() == var || structure == ConditionType::If)
+        {
             content << fmt("if(%s)", {var.first});
         } else {
             content << fmt("else if(%s)", {var.first});
@@ -35,7 +36,7 @@ vector<string> IfElseStatementCpp::GetDefinition(IfElseStructure structure) cons
     return content;
 }
 
-void IfElseStatementCpp::Clear()
+void ConditionCpp::clear()
 {
     this->_caseContent.clear();
 }

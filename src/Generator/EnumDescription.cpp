@@ -5,20 +5,19 @@ using namespace Utils;
 
 EnumDescription::EnumDescription(){}
 
-size_t EnumDescription::Size()
+SizeExprPtr EnumDescription::size() const
 {
-    size_t maxVal = 0;
-    for(auto var: fields)
-    {
-        if(maxVal < var.second) {
-            maxVal = var.second;
-        }
-    }
-    if(maxVal < 255) { return 1; }
-    else {return 2; }
+    if(_bitWidth) return {Literal::create(_bitWidth)};
+
+    auto max = std::max_element(fields.begin(), fields.end(), [](auto a, auto b) {
+        return a.second < b.second;
+    })->second;
+
+    if(max > 255) { return 16_lit; }
+    else          { return 8_lit; }
 }
 
-vector<string> EnumDescription::Declaration(bool withEnumText)
+vector<string> EnumDescription::declaration(bool withEnumText)
 {
     vector<string> content;
     content << "typedef enum" << "{";
@@ -29,34 +28,39 @@ vector<string> EnumDescription::Declaration(bool withEnumText)
         if(fields.back() != var) { content.back() += ","; }
     }
     if(withEnumText) {
-        content << "}" + PrintType() + name + ";"; }
+        content << "}" + printType() + _name + ";"; }
     else {
-        content << "}" + _prefix + name + ";";
+        content << "}" + _prefix + _name + ";";
     }
     return content;
 }
 
-void EnumDescription::SetName(string name)
+void EnumDescription::setName(string name)
 {
-    this->name = name;
+    this->_name = name;
 }
 
-string EnumDescription::GetName() const
+string EnumDescription::getName() const
 {
-    return this->name;
+    return this->_name;
 }
 
-void EnumDescription::SetPrefix(string prefix)
+void EnumDescription::setPrefix(string prefix)
 {
     _prefix = prefix + "_";
 }
 
-string EnumDescription::GetPrefix()
+string EnumDescription::getPrefix()
 {
     return _prefix;
 }
 
-string EnumDescription::PrintType()
+void EnumDescription::setBitWidth(size_t size)
+{
+    _bitWidth = size;
+}
+
+string EnumDescription::printType()
 {
     switch (type)
     {

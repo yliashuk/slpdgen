@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <vector>
 #include "Analyzer/Formater.h"
+#include "SizeExpr.h"
 
 using namespace std;
 
@@ -22,22 +23,24 @@ public:
 
     EnumDescription();
 
-    void SetName(string name);
-    string GetName() const;
+    void setName(string _name);
+    string getName() const;
 
-    void SetPrefix(string prefix);
-    string GetPrefix();
+    void setPrefix(string prefix);
+    string getPrefix();
 
-    size_t Size();
+    void setBitWidth(size_t size);
+    SizeExprPtr size() const;
 
-    vector<string> Declaration(bool withEnumText = true);
+    vector<string> declaration(bool withEnumText = true);
 
-    vector<FieldDataEnum> fields;
+    vector<EnumFieldInfo> fields;
 
 private:
-    string name;
+    string _name;
     string _prefix;
-    string PrintType();
+    size_t _bitWidth = 0;
+    string printType();
 };
 
 #endif // ENUMDESCRIPTION_H

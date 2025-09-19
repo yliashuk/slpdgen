@@ -7,79 +7,80 @@ using namespace Utils;
 
 Function::Function(){}
 
-void Function::SetDeclaration(string functionName, string returnType, vector<Parameter> parameters)
+void Function::setDeclaration(string functionName, string returnType, vector<Parameter> parameters)
 {
-    this->_functionName = functionName;
+    this->_name = functionName;
     this->_returnType = returnType;
     this->_parameters = parameters;
 }
 
-void Function::SetDeclaration(string functionName, string returnType, Parameter parameter)
+void Function::setDeclaration(string functionName, string returnType, Parameter parameter)
 {
-    this->_functionName = functionName;
+    this->_name = functionName;
     this->_returnType = returnType;
     this->_parameters.push_back(parameter);
 }
 
-void Function::SetDeclaration(string functionName, string returnType)
+void Function::setDeclaration(string functionName, string returnType)
 {
-    this->_functionName = functionName;
+    this->_name = functionName;
     this->_returnType = returnType;
 }
 
-void Function::SetExternDeclaration(bool enable)
+void Function::setExtern(bool enable)
 {
     _hasExtern = enable;
 }
 
-void Function::SetStaticDeclaration(bool enable)
+void Function::setStatic(bool enable)
 {
     _hasStatic = enable;
 }
 
-string Function::FunctionName() const
+string Function::name() const
 {
-    return  _functionName;
+    return  _name;
 }
 
-Parameter Function::FunctionPointer() const
+Parameter Function::pointer() const
 {
-    string parameterString = GetParametersString(ParameterStringType::DeclAndDef);
-    return {_returnType, fmt("(*%s)(%s)", {_functionName, parameterString})};
+    string parameters = getParametersString(ParameterStringType::DeclAndDef);
+    return {_returnType, fmt("(*%s)(%s)", {_name, parameters})};
 }
 
-string Function::FunctionPointerDeclaration() const
+Parameter Function::pointerWrapper(string wrapperType) const
 {
-    string parametersString = GetParametersString(ParameterStringType::DeclAndDef);
-    return fmt("%s (*%s)(%s);",{_returnType, _functionName, parametersString});
+    string parameters = getParametersString(ParameterStringType::DeclAndDef);
+    auto returnType = fmt("%s<%s(%s)>", {wrapperType, _returnType, parameters});
+    return {returnType, _name};
 }
 
-void Function::SetBody(vector<string> body)
+void Function::setBody(vector<string> body)
 {
     _body = body;
 }
 
-string Function::Declaration() const
+string Function::declaration() const
 {
-    return (_hasExtern ? "extern " : "") + GetSignature(SignatureType::Decl) + ";";
+    return (_hasExtern ? "extern " : "") + getSignature(SignatureType::Decl) + ";";
 }
 
-void Function::SetContainedClass(string name)
+void Function::setContainedClass(string name)
 {
     _containedClass = name;
 }
 
-void Function::ResetContainedClass()
+void Function::resetContainedClass()
 {
     _containedClass.clear();
 }
 
-vector<string> Function::Definition() const
+vector<string> Function::definition() const
 {
-    return GetSignature(SignatureType::Def) << "{" << fmt("\t%s", _d(_body)) << "}";
+    return getSignature(SignatureType::Def) << "{" << fmt("\t%s", _d(_body)) << "}";
 }
 
-string Function::GetCall(vector<string> argumentNames, bool isPointer) const
+string Function::getCall(vector<string> argumentNames) const
 {
     string parameterString;
     for (const auto &parameter : argumentNames){
@@ -87,44 +88,41 @@ string Function::GetCall(vector<string> argumentNames, bool isPointer) const
         if(parameter != argumentNames.back())
             parameterString += ", ";
     }
-    string postfixP;
-    if(isPointer)
-        postfixP = "_p";
 
-    return fmt("%s(%s);", {_functionName, parameterString});
+    return fmt("%s(%s)", {_name, parameterString});
 }
 
-string Function::GetCall(vector<Parameter> argumentNames) const
+string Function::getCall(vector<Parameter> argumentNames) const
 {
     vector<string> names;
     for(const auto &param : argumentNames)
         names.push_back(param.name);
-   return GetCall(names, false);
+   return getCall(names);
 }
 
-string Function::GetCall() const
+string Function::getCall() const
 {
-    string parameterString = GetParametersString(ParameterStringType::Call);
-    return fmt("%s(%s)", {_functionName, parameterString});
+    string parameterString = getParametersString(ParameterStringType::Call);
+    return fmt("%s(%s)", {_name, parameterString});
 }
 
-vector<Parameter> Function::GetParameters() const
+vector<Parameter> Function::getParameters() const
 {
     return _parameters;
 }
 
-string Function::GetSignature(SignatureType type) const
+string Function::getSignature(SignatureType type) const
 {
-    string parametersString = GetParametersString(ParameterStringType::DeclAndDef);
+    string parametersString = getParametersString(ParameterStringType::DeclAndDef);
 
     return fmt("%{%s }%s %{%s::}%s(%s)", {_hasStatic ? "static" : "",
                                           _returnType,
                                           type == SignatureType::Def ? _containedClass : "",
-                                          _functionName,
+                                          _name,
                                           parametersString});
 }
 
-string Function::GetParametersString(ParameterStringType type) const
+string Function::getParametersString(ParameterStringType type) const
 {
     string parameterString;
 

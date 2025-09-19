@@ -1,12 +1,14 @@
 #ifndef GENERICS_H
 #define GENERICS_H
 
+#include <cmath>
 #include <vector>
+#include <optional>
 #include <algorithm>
 
 using namespace std;
 
-enum DataStructType
+enum StructType
 {
     SmplStr,
     Hdr,
@@ -28,20 +30,32 @@ typedef enum
     StructNameNotContained,
     FieldNameNotContained,
     DefiningVarNotContained,
+    ValueOutOfRange,
     Ok
 } Status;
 
-template<template <class ...> class Container, typename T>
-std::optional<T> FindByName(const Container<T>& types, string name)
+template<typename Container>
+typename Container::iterator findByName(Container& container, const string& name)
 {
-    auto it = std::find_if(types.begin(), types.end(),
-                           [name](T type) { return type.GetName() == name; });
+    auto it = std::find_if(container.begin(), container.end(),
+                           [name](auto type) { return type.getName() == name; });
+    return it;
+}
 
-    return it != types.end() ? *it : std::optional<T>{};
+template<typename Container>
+typename std::optional<typename Container::value_type>
+findByNameOpt(const Container& container, const string& name)
+{
+    auto it = std::find_if(container.begin(), container.end(),
+                           [name](auto type) { return type.getName() == name; });
+
+    return it != container.end()
+            ? std::optional<typename Container::value_type>(*it)
+            : std::nullopt;
 }
 
 template<typename T>
-typename vector<T>::iterator FindInVector(vector<T>& DataStruct, T content)
+typename vector<T>::iterator findInVector(vector<T>& DataStruct, T content)
 {
     auto it = std::find_if(DataStruct.begin(), DataStruct.end(),
                            [content](const T& p)
@@ -52,8 +66,8 @@ typename vector<T>::iterator FindInVector(vector<T>& DataStruct, T content)
 }
 
 template<typename T,typename B>
-typename vector<pair<T,B>>::iterator FindInVector(vector<pair<T,B>>& DataStruct,
-                                                  T content)
+typename vector<pair<T,B>>::iterator
+findInVector(vector<pair<T,B>>& DataStruct, T content)
 {
     auto it = std::find_if(DataStruct.begin(),DataStruct.end(),
                            [content](const pair<T,B>& p)
@@ -64,8 +78,8 @@ typename vector<pair<T,B>>::iterator FindInVector(vector<pair<T,B>>& DataStruct,
 }
 
 template<typename T,typename B>
-typename vector<pair<T,B>>::iterator FindInVector(vector<pair<T,B>>& DataStruct,
-                                                  B content)
+typename vector<pair<T,B>>::iterator
+findInVector(vector<pair<T,B>>& DataStruct, B content)
 {
     auto it = std::find_if(DataStruct.begin(),DataStruct.end(),
                            [content](const pair<T,B>& p)
@@ -76,55 +90,61 @@ typename vector<pair<T,B>>::iterator FindInVector(vector<pair<T,B>>& DataStruct,
 }
 
 template<typename T>
-bool VectorIsContained(vector<T> DataStruct, T content)
+bool vectorIsContained(const vector<T>& DataStruct, T content)
 {
-    return FindInVector(DataStruct, content) != DataStruct.end();
+    return findInVector(DataStruct, content) != DataStruct.end();
 }
 
 template<typename T,typename B>
-bool VectorIsContained(vector<pair<T,B>> DataStruct, T content)
+bool vectorIsContained(const vector<pair<T,B>>& DataStruct, T content)
 {
-    return FindInVector(DataStruct, content) != DataStruct.end();
+    return findInVector(DataStruct, content) != DataStruct.end();
 }
 
 
 template<typename T>
-bool DataStructIsNotContains(pair<string, vector<pair<string,T>>>& DataStruct,
-                             string contentFieldName)
+bool dataStructIsNotContains(const T& dataStruct, string structFieldName)
 {
-    auto it = std::find_if(DataStruct.second.begin(),DataStruct.second.end(),
-                           [contentFieldName](const pair<string,T>& p)
+    auto it = std::find_if(dataStruct.fields.begin(),dataStruct.fields.end(),
+                           [structFieldName](const auto& p)
                             {
-                                return p.first == contentFieldName ;
+                                return p.first == structFieldName ;
                             });
-    return DataStruct.second.end() == it ;
+    return dataStruct.fields.end() == it ;
 }
 
 template<typename T>
-typename vector<pair<string,T>>::iterator
-GetListDataStruct(vector<pair<string,T>>& structuresList, string contentDataStructName)
+typename vector<T>::iterator
+getListDataStruct(vector<T>& structures, string structName)
 {
-    auto it = std::find_if(structuresList.begin(),structuresList.end(),
-                           [contentDataStructName](const pair<string,T>& p)
+    auto it = std::find_if(structures.begin(),structures.end(),
+                           [structName](const T& p)
                             {
-                                return p.first == contentDataStructName ;
+                                return p.name == structName ;
                             });
     return it ;
 }
 
 template<typename T>
-Status ContentCheck(vector<pair<string,T>>& structuresList,
-                    typename vector<pair<string,T>>::iterator& it,
-                    string dataStructName, string contentFieldName)
+Status checkContent(vector<T>& structures,
+                    typename vector<T>::iterator& it,
+                    string structName, string structFieldName)
 {
-    it = GetListDataStruct(structuresList, dataStructName);
-    if(it == structuresList.end())
+    it = getListDataStruct(structures, structName);
+    if(it == structures.end())
         return Status::StructNameNotContained;
-    if(DataStructIsNotContains(*it, contentFieldName))
+    if(dataStructIsNotContains(*it, structFieldName))
         return Status::Ok;
     else {
         return Status::DuplField;
     }
+}
+
+template<typename T>
+static Status checkFieldValueRange(const T& field, uint8_t bitWidth)
+{
+    auto maxValue = pow(2, bitWidth) - 1;
+    return field.second > maxValue ? ValueOutOfRange : Ok;
 }
 
 #endif // GENERICS_H
