@@ -1,8 +1,4 @@
-TEMPLATE = app
-CONFIG += console c++17
-CONFIG -= app_bundle
-CONFIG -= qt
-#include(src/Analyzer/Analyzer.pri)
+QMAKE_CXXFLAGS = -std=c++17 -Wall -Wshadow -Wpointer-arith -pedantic
 
 # Generate Parser
 
@@ -47,10 +43,13 @@ QMAKE_EXTRA_COMPILERS += bisonheader
 
 HEADERS += \
     src/Analyzer/Rule.h \
+    src/CppConstructs/FunctionsSrc.h \
     src/Generator/CalcSizeHelper.h \
     src/Generator/CodeGenerator.h \
     src/Generator/MsgHandlerGen.h \
     src/Generator/RulesDefinedMessage.h \
+    src/Generator/StdTypeHandler.h \
+    src/Utils/AutoEndlStream.h \
     src/Utils/ContainerUtils.h \
     src/Utils/StringUtils.h \
     src/Analyzer/Analyzer.h \
@@ -64,8 +63,7 @@ HEADERS += \
     src/CppConstructs/SwitchCpp.h \
     src/Generator/ComplexTypeDescription.h \
     src/Generator/EnumDescription.h \
-    src/Generator/Generics.h \
-    src/Generator/Polynomial.h \
+    src/Generator/SizeExpr.h \
     src/AppOptions.h \
     src/VersionInfo.h
 
@@ -74,7 +72,7 @@ SOURCES += \
     src/Generator/CalcSizeHelper.cpp \
     src/Generator/CodeGenerator.cpp \
     src/Generator/MsgHandlerGen.cpp \
-    src/Generator/RulesDefinedMessage.cpp \
+    src/Generator/StdTypeHandler.cpp \
     src/Utils/StringUtils.cpp \
     src/Analyzer/Formater.cpp \
     src/Analyzer/StructFieldData.cpp \
@@ -85,7 +83,7 @@ SOURCES += \
     src/CppConstructs/SwitchCpp.cpp \
     src/Generator/ComplexTypeDescription.cpp \
     src/Generator/EnumDescription.cpp \
-    src/Generator/Polynomial.cpp \
+    src/Generator/SizeExpr.cpp \
     src/main.cpp
 
 INCLUDEPATH += src/

@@ -12,11 +12,9 @@ namespace CppConstructs
     {
     public:
         SwitchCpp();
-        void SetSwitchingParameter(string parameter);
-
-        void AddCase(string switchValue, vector<string> content);
-
-        vector<string> Declaration() const;
+        void setSwitchingParameter(string parameter);
+        void addCase(string switchValue, vector<string> content);
+        vector<string> declaration() const;
 
     private:
         string _switchingParameter;

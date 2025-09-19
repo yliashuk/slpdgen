@@ -25,7 +25,7 @@ bool Rule::isValid() const
     return command.has_value() && sendType.has_value();
 }
 
-Rule Rule::Reverse(const Rule &rule)
+Rule Rule::reverse(const Rule &rule)
 {
     return  {
         rule.command,

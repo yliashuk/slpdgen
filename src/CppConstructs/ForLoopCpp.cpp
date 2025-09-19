@@ -5,19 +5,19 @@ using CppConstructs::ForLoopCpp;
 
 ForLoopCpp::ForLoopCpp(){}
 
-void ForLoopCpp::SetDeclaration(string init, string condition, string increment)
+void ForLoopCpp::setDeclaration(string init, string condition, string increment)
 {
     this->_init = init;
     this->_condition = condition;
     this->_increment = increment;
 }
 
-void ForLoopCpp::SetBody(vector<string> body)
+void ForLoopCpp::setBody(vector<string> body)
 {
     _body = body;
 }
 
-vector<string> ForLoopCpp::Definition() const
+vector<string> ForLoopCpp::definition() const
 {
     if(this->_body.empty()) { return {};}
     vector<string> content;

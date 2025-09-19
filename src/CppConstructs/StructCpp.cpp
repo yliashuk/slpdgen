@@ -8,41 +8,41 @@ StructCpp::StructCpp(const String& structName)
     _structName = structName;
 }
 
-void StructCpp::SetTypeDef(bool state)
+void StructCpp::setTypeDef(bool state)
 {
     _hasTypeDef = state;
 }
 
-void StructCpp::SetName(const String &structName)
+void StructCpp::setName(const String &structName)
 {
     _structName = structName;
 }
 
-String StructCpp::GetName() const
+String StructCpp::getName() const
 {
     return _structName;
 }
 
-void StructCpp::AddField(const Field &field)
+void StructCpp::addField(const Field &field)
 {
     _fields += field;
 }
 
-void StructCpp::AddFields(const Fields &fields)
+void StructCpp::addFields(const Fields &fields)
 {
     _fields += fields;
 }
 
-StructCpp::Fields StructCpp::GetFields()
+StructCpp::Fields StructCpp::getFields()
 {
     return _fields;
 }
 
-Strings StructCpp::Declaration() const
+Strings StructCpp::declaration() const
 {
     String header = {(_hasTypeDef ? "typedef " : "") + "struct"s
             + (_hasTypeDef ? "" : " " + _structName)};
     String end = "}" + (_hasTypeDef ? _structName : "") + ";";
 
-    return header << "{" << fmt("\t%s %s;%{ //%s}", _fields) << end;
+    return header << "{" << fmt("\t%s %s%{ : %s};%{ //%s}", _fields) << end;
 }

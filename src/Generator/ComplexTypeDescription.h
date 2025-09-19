@@ -10,7 +10,6 @@
 #include "CppConstructs/FunctionCpp.h"
 #include "CppConstructs/ForLoopCpp.h"
 #include "Utils/StringUtils.h"
-#include "Polynomial.h"
 
 #include "CalcSizeHelper.h"
 
@@ -30,52 +29,50 @@ enum class ComplexType
     Header
 };
 
-struct VarArray
-{
-    string varArrayType;
-    Polynomial varArraySize;
-    string varArrayLen;
-    string varArrayTypeName;
-};
-
 class ComplexTypeDescription
 {
 public:
     ComplexTypeDescription();
-    void SetOption(AppOptions options);
+    void setOption(AppOptions options);
 
-    void SetBlockType(ComplexType type);
-    void SetPrefix(string prefix);
+    void setBlockType(ComplexType type);
+    void setPrefix(string prefix);
 
-    void SetName(string name);
-    string GetName() const;
+    void setName(string _name);
+    string getName() const;
 
-    string GetCodeName() const;
+    string getCodeName() const;
 
-    Polynomial Size() const;
+    SizeExprPtr size() const;
 
-    void addField(FieldDataStruct data,
-                  pair<string, fieldType> type,
-                  Polynomial fieldSize);
+    void addContextOffset(SizeExprPtr offset);
 
-    vector<StructField> GetFields() const;
+    void addField(StructFieldInfo data,
+                  pair<string, FieldType> type,
+                  SizeExprPtr fieldSize);
 
-    vector<string> Declaration();
+    vector<ComplexField> fields() const;
 
-    vector<string> SerDesDefinition(FunType funType, bool hasStatic = true);
-    string SerDesCall(FunType type, string structName) const;
-    string SerCall() const;
-    string SerCall(string pointerName, string paramName) const;
-    string DesCall(string pointerName, string paramName) const;
-    string AsVarDecl() const;
-    vector<string> SizeCalcFun(FunType type, bool hasStatic = true);
-    string SizeCalcFunCall(FunType type) const;
-    string BlType() const;
-    Function CompareFun();
+    vector<string> declaration();
+
+    vector<string> serdesDefinition(FunType funType, bool hasStatic = true);
+
+    string serCall(string pointerName, string offset, string paramName) const;
+    string desCall(string pointerName, string offset, string paramName,
+                   string op_status) const;
+
+    string asVarDecl() const;
+    vector<string> sizeCalcFun(FunType type, bool hasStatic = true);
+    string sizeCalcFunCall(FunType type) const;
+    string blType() const;
+    Function compareFun();
+
+    void setAlignedCopyPreferred(bool state);
+    bool shouldUseAlignedCopy(const ComplexField &field) const;
 
 private:
     string _name;
-    vector<StructField> _fields;
+    vector<ComplexField> _fields;
     ComplexType _blockType;
 
     AppOptions _options{};
@@ -84,23 +81,36 @@ private:
     string _pSer = "Ser_";
     string _pDes = "Des_";
 
-    vector<VarArray> _varArrays;
+    bool _isAlignedCopyPreferred = true;
 
-    string FieldTypePrefix(fieldType type);
+    vector<SizeExprPtr> _contextOffsets;
 
-    bool IsArrayVarLen(string _name);
+    string fieldTypePrefix(FieldType type);
 
-    void SetSerDesDeclaration(Function& function, FunType type);
+    bool isArrayVarLen(string name) const;
 
-    Strings SerArrayField(const StructField &field);
-    Strings DesArrayField(const StructField &field);
-    Strings ArrayFieldAllocation(const StructField &field);
+    void setSerdesDeclaration(Function& function, FunType type);
 
-    Strings SerSimpleField(const StructField &field);
-    Strings DesSimpleField(const StructField &field);
+    Strings serArrayField(const ComplexField &field);
+    Strings desArrayField(const ComplexField &field);
+    Strings arrayFieldAllocation(const ComplexField &field);
 
-    Strings DesCheckInitValue(const StructField &field);
-    Strings DesCheckValueRange(const StructField &field);
+    Strings serSimpleField(const ComplexField &field);
+    Strings desSimpleField(const ComplexField &field);
+
+    Strings desCheckInitValue(const ComplexField &field);
+    Strings desCheckValueRange(const ComplexField &field);
+
+    String usedCopyMethod(const ComplexField &field);
+
+    bool isCppBoolDynamicArray(const ComplexField &field);
+
+    static Strings checkOpStatus();
+    static bool isSimpleBitField(const ComplexField &field);
+    static bool isArrayBitField(const ComplexField &field);
+    static bool isArrayAlignedField(const ComplexField &field);
+    static bool isNonStandardSize(const SizeExprPtr& bitSize);
+
 
 };
 

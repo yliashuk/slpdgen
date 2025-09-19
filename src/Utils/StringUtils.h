@@ -18,8 +18,12 @@ namespace Utils
 
     String fmt(const String& format, const Strings& args);
 
-    String& toLower(String& str);
-    String& toUpper(String& str);
+    String toLower(String str);
+    String toUpper(String str);
+
+    /// String condition
+    /// Returns formatted string using one of two templates based on condition
+    String sc(bool condition, std::pair<String, String> fmtTemplates, String str);
 
     template<typename T> Strings Stringifier(const T& t) {return t.toStrings();}
 

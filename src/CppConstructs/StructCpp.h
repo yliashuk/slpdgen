@@ -13,13 +13,14 @@ namespace CppConstructs
         {
             String type;
             String name;
+            String bitWidth;
             String comment;
 
-            Field(const String& t, const String& n, const String& c = "")
-                : type(t), name(n), comment(c){}
+            Field(String t, String n, String bw = "", String c = "")
+                : type(t), name(n), bitWidth(bw), comment(c){}
 
             Strings toStrings() const {
-                return {type, name, comment};
+                return {type, name, bitWidth, comment};
             }
         };
 
@@ -27,17 +28,17 @@ namespace CppConstructs
 
         StructCpp() = default;
         StructCpp(const String &structName);
-        void SetTypeDef(bool state);
+        void setTypeDef(bool state);
 
-        void SetName(const String& structName);
-        String GetName() const;
+        void setName(const String& structName);
+        String getName() const;
 
-        void AddField(const Field& field);
-        void AddFields(const Fields& fields);
+        void addField(const Field& field);
+        void addFields(const Fields& fields);
 
-        Fields GetFields();
+        Fields getFields();
 
-        Strings Declaration() const;
+        Strings declaration() const;
 
     private:
         bool _hasTypeDef = false;

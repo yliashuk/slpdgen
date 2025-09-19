@@ -58,14 +58,14 @@ String Utils::fmt(const String &format, const Strings &args)
     return result;
 }
 
-String& Utils::toLower(String& str)
+String Utils::toLower(String str)
 {
     std::transform(str.begin(), str.end(), str.begin(),
                    [](unsigned char c){ return std::tolower(c); });
     return str;
 }
 
-String& Utils::toUpper(String& str)
+String Utils::toUpper(String str)
 {
     std::transform(str.begin(), str.end(), str.begin(),
                    [](unsigned char c){ return std::toupper(c); });
@@ -120,4 +120,10 @@ Strings& Utils::operator<<(Strings &strs1, const Strings &strs2)
 Strings &Utils::operator<<(Strings &strs, const String &str)
 {
     return strs += str;
+}
+
+String Utils::sc(bool condition, std::pair<String, String> fmtTemplates, String str)
+{
+    String temp = condition ? fmtTemplates.first : fmtTemplates.second;
+    return fmt(temp, {str});
 }

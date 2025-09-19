@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include "Analyzer/Formater.h"
-#include "Polynomial.h"
+#include "SizeExpr.h"
 #include "CppConstructs/ForLoopCpp.h"
 #include "CppConstructs/FunctionCpp.h"
 #include "CppConstructs/StructCpp.h"
@@ -19,7 +19,7 @@ enum FunType
     Des
 };
 
-enum class fieldType
+enum class FieldType
 {
     std,
     Enum,
@@ -28,14 +28,15 @@ enum class fieldType
     Struct
 };
 
-struct StructField
+struct ComplexField
 {
-    pair<string,fieldType> type;
-    string fieldName;
-    Polynomial fieldSize;
-    Polynomial fieldOffset;
-    Polynomial arrayTypeSize; // for array fields
-    FieldData data;
+    string name;
+    pair<string, FieldType> type;
+    SizeExprPtr bitSize = 0_lit;
+    SizeExprPtr arrayElementSize = 0_lit;  // for array fields
+    SizeExprPtr arrayElementCount = 0_lit; // for array fields
+
+    FieldInfo info;
 };
 
 class CalcSizeHelper
@@ -43,29 +44,29 @@ class CalcSizeHelper
 public:
     CalcSizeHelper() = delete;
 
-    static Strings CalcSizeLoop(string typePrefix, StructField field,
+    static Strings calcSizeLoop(string typePrefix, ComplexField field,
                                 FunType type);
 
-    static Strings CalcStructSize(string typePrefix,
-                                  StructField field, FunType type,
+    static Strings calcStructSize(string typePrefix,
+                                  ComplexField field, FunType type,
                                   bool isInLoop = false);
 
-    static string CalcSizeFunName(string name, FunType type);
+    static string calcSizeFunName(string name, FunType type);
 
     // Calculate serialization size for simple fieldTypes: Enum, Code, Type, std
-    static string CalcSimpeTypeSize(StructField field, FunType type);
+    static string calcSimpeTypeSize(ComplexField field, FunType type);
 
-    static string CalcDesSimpleArrTypeSize(string typePrefix,
-                                           StructField field);
+    static string calcDesSimpleArrTypeSize(string typePrefix,
+                                           ComplexField field);
 
-    static Function CalcSizeFunDecl(string name, FunType type, bool hasStatic);
+    static Function calcSizeFunDecl(string name, FunType type, bool hasStatic);
 
-    static Strings CSizeDef();
+    static Strings cSizeDef();
 
 private:
-    static ForLoopCpp CalcSizeLoopDecl(StructField field, FunType type);
-    static vector<string> AccumulateSize(StructField field);
-    static string FieldSize(StructField field, FunType type);
+    static ForLoopCpp calcSizeLoopDecl(ComplexField field, FunType type);
+    static vector<string> accumulateSize(ComplexField field);
+    static string fieldSize(ComplexField field, FunType type);
 };
 
 #endif // DESCRIPTIONHELPER_H

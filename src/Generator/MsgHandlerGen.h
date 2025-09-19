@@ -14,27 +14,38 @@ public:
                   EnumDescription errorEnum,
                   ComplexTypeDescription header);
 
-    Function SendMsgFun(const RulesDefinedMessage& msg);
-    Function ParseFun(const vector<RulesDefinedMessage> &rdms);
+    Function sendMsgFun(const RulesDefinedMessage& msg);
+    Function parseFun(const vector<RulesDefinedMessage> &rdms);
 
-    Function SendCb();
-    Function ReceiveMsgCb(RulesDefinedMessage msg);
-    string ReceiveFunName(RulesDefinedMessage msg);
-    std::vector<Parameter> GetHeaderParams(std::vector<string> initTypes);
+    Function sendCb();
+    Function checkHeaderCb();
+    Function receiveMsgCb(RulesDefinedMessage msg);
+    string receiveFunName(RulesDefinedMessage msg);
+    std::vector<Parameter> getHeaderParams(std::vector<string> initTypes);
 
 private:
-    string _fName;
-    AppOptions _options;
+    const string _fName;
+    const AppOptions _options;
+
+    // base class prefix for cpp internal implementation
+    const string _bpfx;
+    // file prefix for cpp internal implementation
+    const string _fpfx;
 
     EnumDescription _errorEnum;
     ComplexTypeDescription _header;
 
-    Parameter AddrParameter();
+    Strings headerValidationCode();
+    Strings returnErrorOnNull(string variable);
 
-    string CodeVarName();
-    string TypeVarName();
-    Strings ReceiveMsgCbArgNames(const RulesDefinedMessage& rdm);
-    string SendFunName(RulesDefinedMessage msg);
+    Parameter addrParameter();
+
+    string codeVarName();
+    string typeVarName();
+    Strings receiveMsgCbArgNames(const RulesDefinedMessage& rdm);
+    string sendFunName(RulesDefinedMessage msg);
+
+
 };
 
 #endif // PARSEFUN_H

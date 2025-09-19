@@ -3,37 +3,34 @@
 
 #include <memory>
 #include <string>
+#include <optional>
 using namespace std;
 
 struct FieldInfo
 {
+    string name;
     string type;
-    string varName;
-    string lenDefiningVar;
-    string specialType;
-    uint64_t constLenDefiningVar = 0;
-    uint64_t defaultVal = 0;
-    uint64_t fromVal = 0;
-    uint64_t toVal = 0;
+    std::optional<string> sizeVar;
+    std::optional<uint64_t> constantSize;
+    std::optional<string> specialType; //"local" or "remote"
+    std::optional<uint64_t> initValue;
+    std::optional<uint64_t> fromVal;
+    std::optional<uint64_t> toVal;
 
-    bool isNumOfCeils       = false;
-    bool withLenDefiningVar = false;
-    bool defaultValue       = false;
-    bool valueRange         = false;
-    bool isWithSpecialType  = false; //"local" or "remote"
-
+    bool isArray() const;
+    bool hasDynamicSize() const;
 };
 
 class FieldInfoBuilder
 {
 public:
-    FieldInfoBuilder& SetCommon(string type, string VarName);
-    FieldInfoBuilder& SetLenDefiningVar(string str);
-    FieldInfoBuilder& SetLenDefiningVar(uint64_t num);
-    FieldInfoBuilder& SetDefaultVal(uint64_t val);
-    FieldInfoBuilder& SetValRange(uint64_t fromVal, uint64_t toVal);
-    FieldInfoBuilder& SetSpecialType(string type);
-    unique_ptr<FieldInfo> Build();
+    FieldInfoBuilder& setCommon(string type, string VarName);
+    FieldInfoBuilder& setArraySize(string str);
+    FieldInfoBuilder& setArraySize(uint64_t num);
+    FieldInfoBuilder& setInitValue(uint64_t val);
+    FieldInfoBuilder& setValRange(uint64_t fromVal, uint64_t toVal);
+    FieldInfoBuilder& setSpecialType(string type);
+    unique_ptr<FieldInfo> build();
 private:
     FieldInfo _FieldInfo;
 };

@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+#include <fstream>
 #include "AppOptions.h"
 #include "Analyzer/Analyzer.h"
 #include "Generator/CodeGenerator.h"
@@ -7,7 +8,7 @@
 
 using namespace std;
 
-string GetBaseFileName(string filePath)
+string getBaseFileName(string filePath)
 {
     string fName(filePath.substr(filePath.find_last_of("/\\") + 1));
     size_t pos = fName.rfind(".");
@@ -20,12 +21,32 @@ string GetBaseFileName(string filePath)
     return fName.substr(0, pos);
 }
 
-AppOptions ParametersCheck(int argc, char **argv)
+const string HelpMessage =
+R"(Usage: slpdgen [options] <slpd_file_name>
+
+Options:
+  -h                 show this help message
+  -v                 show SLPD version
+  -qt, -qt+          generate protocol for Qt
+  -cpp               generate protocol for pure C++
+  -c                 generate protocol for pure C
+  -ip                generate protocol using IPv4 address
+  -json              generate JSON file converted from SLPD file
+
+Examples:
+  slpdgen -json proto.slpd
+  slpdgen -qt -ip proto.slpd
+)";
+
+AppOptions checkParameters(int argc, char **argv)
 {
     AppOptions options {};
 
-    if(argc < 1)
+    if(argc == 1)
+    {
+        cout << HelpMessage;
         exit(0);
+    }
 
     for(int i = 1; i < argc; i++)
     {
@@ -37,35 +58,50 @@ AppOptions ParametersCheck(int argc, char **argv)
 
             exit(0);
         }
-
-        if(string(argv[i]) == "-qt" || string(argv[i]) == "-qt+")
+        else if(string(argv[i]) == "-h")
+        {
+            cout << HelpMessage;
+            exit(0);
+        }else if(string(argv[i]) == "-qt" || string(argv[i]) == "-qt+")
         {
             options.isQt = true;
             options.isCpp = true;
-        }
-        else if(string(argv[i]) == "-ip") {
+        }else if(string(argv[i]) == "-c")
+        {
+            options.isC = true;
+        }else if(string(argv[i]) == "-cpp")
+        {
+            options.isCpp = true;
+        }else if(string(argv[i]) == "-ip")
+        {
             options.hasAddr = true;
-        }
-        else if(string(argv[i]) == "-c") {
-            options.isQt = false;
-            options.isCpp = false;
-        }
-        else if(*string(argv[i]).begin() == '-') {
+        }else if(string(argv[i]) == "-json")
+        {
+            options.isJson = true;
+        }else if(*string(argv[i]).begin() == '-')
+        {
             cout<<string(argv[i]) << " Invalid flag" << endl;
             exit(0);
         }
             options.filePath = argv[i];
-            options.fileName = GetBaseFileName(options.filePath);
+            options.fileName = getBaseFileName(options.filePath);
     }
     if(options.filePath == "")
+    {
         exit(0);
+    }
+
+    if(!options.isQt && !options.isCpp)
+    {
+        options.isC = true;
+    }
 
     return options;
 }
 
 int main(int argc, char **argv)
 {
-    auto options = ParametersCheck(argc, argv);
+    auto options = checkParameters(argc, argv);
 
     yyin = fopen(options.filePath.c_str(), "r");
     if(yyin == nullptr) {
@@ -75,8 +111,14 @@ int main(int argc, char **argv)
     yyparse();
     if(isSuccess())
     {
-        CodeGenerator gen(options, formater);
-        gen.Generate();
+        if(options.isJson)
+        {
+            std::ofstream(options.fileName + ".json") << formater.toJson();
+        } else
+        {
+            CodeGenerator gen(options, formater);
+            gen.generate();
+        }
     }
 
     return 0;
