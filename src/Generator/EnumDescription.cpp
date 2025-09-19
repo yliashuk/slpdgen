@@ -7,15 +7,12 @@ EnumDescription::EnumDescription(){}
 
 size_t EnumDescription::Size()
 {
-    size_t maxVal = 0;
-    for(auto var: fields)
-    {
-        if(maxVal < var.second) {
-            maxVal = var.second;
-        }
-    }
-    if(maxVal < 255) { return 1; }
-    else {return 2; }
+    auto max = std::max_element(fields.begin(), fields.end(), [](auto a, auto b) {
+        return a.second < b.second;
+    })->second;
+
+    if(max > 255) { return 16; }
+    else          { return 8; }
 }
 
 vector<string> EnumDescription::Declaration(bool withEnumText)

@@ -139,7 +139,7 @@ vector<string> ComplexTypeDescription::Declaration()
 vector<string> ComplexTypeDescription::SerDesDefinition(FunType funType, bool hasStatic)
 {
     Strings body;
-    body << "uint32_t size = 0;";
+    body << "size_t size = offset;";
 
     if(funType == Des)
     {
@@ -170,7 +170,7 @@ vector<string> ComplexTypeDescription::SerDesDefinition(FunType funType, bool ha
             }
         }
     }
-    body << "return size;";
+    body << "return size - offset;";
 
     Function funConstruct;
     SetSerDesDeclaration(funConstruct, funType);
@@ -180,45 +180,16 @@ vector<string> ComplexTypeDescription::SerDesDefinition(FunType funType, bool ha
     return funConstruct.Definition();
 }
 
-string ComplexTypeDescription::SerDesCall(FunType type, string structName) const
+string ComplexTypeDescription::SerCall(string pointerName, string offset, string paramName) const
 {
-    auto BlockName = fmt("%s_%s", {BlType(), _name});
-    Function funConstruct;
-    if(type == Ser)
-    {
-        vector<Parameter> params;
-        params.push_back({"char*","l_p"});
-        params.push_back({BlockName,"str"});
-        funConstruct.SetDeclaration(_pSer + BlType() + '_' + _name,"void",params);
-    }
-    else
-    {
-        vector<Parameter> params;
-        if(_blockType == ComplexType::Header && !_options.isCpp) {
-            string fName = _options.fileName;
-            params.push_back({fmt("%s_Obj*", {toLower(fName)}), "obj"});
-        }
-        params.push_back({"char*","l_p"});
-        params.push_back({BlockName,structName});
-        params.push_back({"uint8_t*","op_status"});
-        funConstruct.SetDeclaration(_pDes + BlType() + "_" + _name,"void",params);
-    }
-    return funConstruct.GetCall();
+    return fmt("%s%s_%s(%s, %s, %s)", {_pSer, BlType(), _name, pointerName, offset, paramName});
 }
 
-string ComplexTypeDescription::SerCall() const
+string ComplexTypeDescription::DesCall(string pointerName, string offset,
+                                       string paramName, string op_status) const
 {
-    return fmt("%s%s_%s(l_p, %s_%s);", {_pSer, BlType(), _name, BlType(), _name});
-}
-
-string ComplexTypeDescription::SerCall(string pointerName, string paramName) const
-{
-    return fmt("%s%s_%s(%s, %s);", {_pSer, BlType(), _name, pointerName, paramName});
-}
-
-string ComplexTypeDescription::DesCall(string pointerName, string paramName) const
-{
-    return fmt("%s%s_%s(%s, %s);", {_pDes, BlType(), _name, pointerName, paramName});
+    return fmt("%s%s_%s(%s, %s, %s, %s)",
+    {_pDes, BlType(), _name, pointerName, offset, paramName, op_status});
 }
 
 string ComplexTypeDescription::AsVarDecl() const
@@ -273,7 +244,7 @@ vector<string> ComplexTypeDescription::SizeCalcFun(FunType type, bool hasStatic)
                 string size = field.fieldSize.Get();
                 string type = field.type.first;
                 body << fmt("%s %s = 0;", {type, name});
-                body << fmt("memcpy(&%s, p + c_size.r, %s);", {name, size});
+                body << fmt("bitcpy(&%s, 0, p, c_size.r, %s);", {name, size});
             }
             if(type == Des && isDynamicArray)
             {
@@ -348,6 +319,7 @@ void ComplexTypeDescription::SetSerDesDeclaration(Function &function, FunType ty
     vector<Parameter> params;
 
     params.push_back({"char*", "p"});
+    params.push_back({"size_t", "offset"});
     params.push_back({blockName, "*str"});
 
     if(type == Des)
@@ -359,7 +331,7 @@ void ComplexTypeDescription::SetSerDesDeclaration(Function &function, FunType ty
         params.push_back({"uint8_t*", "op_status"});
     }
     String serDesPrefix = type == Ser ? _pSer : _pDes;
-    function.SetDeclaration(serDesPrefix + blockName,"uint32_t", params);
+    function.SetDeclaration(serDesPrefix + blockName,"size_t", params);
 }
 
 Strings ComplexTypeDescription::SerArrayField(const StructField& field)
@@ -372,16 +344,15 @@ Strings ComplexTypeDescription::SerArrayField(const StructField& field)
 
     if(metaType != fieldType::Struct)
     {
-        string copyFmt = "memcpy(p + size, &str->%s[i], %s);";
+        string copyFmt = "size += bitcpy(p, size, &str->%s[i], 0, %s);";
 
         loopBody << fmt(copyFmt, {fieldName, elementSize});
-        loopBody << fmt("size += %s;",{elementSize});
 
     } else if(metaType == fieldType::Struct)
     {
         String type = field.type.first;
         type = fmt("%s%s_%s",{_pSer, FieldTypePrefix(metaType), type});
-        loopBody << fmt("size += %s(p + size, &str->%s[i]);", {type, fieldName});
+        loopBody << fmt("size += %s(p, size, &str->%s[i]);", {type, fieldName});
     }
 
     ForLoopCpp loop;
@@ -406,24 +377,25 @@ Strings ComplexTypeDescription::DesArrayField(const StructField &field)
         body << ArrayFieldAllocation(field);
     }
 
-    if(metaType != fieldType::Struct)
     {
-        string copyFmt = "memcpy(&str->%s[i], p + size, %s);";
-        loopBody << fmt(copyFmt, {fieldName, elementSize});
-        loopBody << fmt("size += %s;", {elementSize});
-    }
-    else if(metaType == fieldType::Struct)
-    {
-        String type = field.type.first;
-        type = fmt("%s%s_%s",{_pDes, FieldTypePrefix(metaType), type});
-        loopBody << fmt("size += %s(p + size, &str->%s[i], op_status);",
-                        {type, fieldName});
-    }
+        if(metaType != fieldType::Struct)
+        {
+            string copyFmt = "size += bitcpy(&str->%s[i], 0, p, size, %s);";
+            loopBody << fmt(copyFmt, {fieldName, elementSize});
+        }
+        else if(metaType == fieldType::Struct)
+        {
+            String type = field.type.first;
+            type = fmt("%s%s_%s",{_pDes, FieldTypePrefix(metaType), type});
+            loopBody << fmt("size += %s(p, size, &str->%s[i], op_status);",
+                            {type, fieldName});
+        }
 
-    ForLoopCpp loop;
-    loop.SetDeclaration("int i = 0","i < " + fieldSize, "i++");
-    loop.SetBody(loopBody);
-    body << loop.Definition();
+        ForLoopCpp loop;
+        loop.SetDeclaration("int i = 0","i < " + fieldSize, "i++");
+        loop.SetBody(loopBody);
+        body << loop.Definition();
+    }
 
     return body;
 }
@@ -466,13 +438,12 @@ Strings ComplexTypeDescription::SerSimpleField(const StructField &field)
     }
 
     if(field.type.second != fieldType::Struct) {
-        string copyFmt = "memcpy(p + size, &str->%s, %s);";
+        string copyFmt = "size += bitcpy(p, size, &str->%s, 0, %s);";
         body << fmt(copyFmt, {fieldName, fieldSize});
-        body << fmt("size += %s;", {fieldSize});
     } else if(field.type.second == fieldType::Struct) {
         String type = field.type.first;
         type = fmt("%s%s_%s",{_pSer, FieldTypePrefix(metaType), type});
-        body << fmt("size += %s(p + size, &str->%s);", {type, fieldName});
+        body << fmt("size += %s(p, size, &str->%s);", {type, fieldName});
     }
 
     return body;
@@ -487,21 +458,12 @@ Strings ComplexTypeDescription::DesSimpleField(const StructField &field)
     const String& fieldSize = field.fieldSize.Get();
     Strings body;
 
-    auto isEnum = field.type.second == fieldType::Enum ||
-                  field.type.second == fieldType::Type ||
-                  field.type.second == fieldType::Code;
-
-    if(isEnum) {
-        body << fmt("str->%s =(%s_%s)0;", {fieldName, typePrefix, type});
-    }
-
     if(field.type.second != fieldType::Struct) {
-        string copyFmt = "memcpy(&str->%s, p + size, %s);";
+        string copyFmt = "size += bitcpy(&str->%s, 0, p, size, %s);";
         body << fmt(copyFmt, {fieldName, fieldSize});
-        body << fmt("size += %s;", {fieldSize});
     } else if(field.type.second == fieldType::Struct) {
         type = fmt("%s%s_%s",{_pDes, typePrefix, type});
-        body << fmt("size += %s(p + size, &str->%s, op_status);", {type, fieldName});
+        body << fmt("size += %s(p, size, &str->%s, op_status);", {type, fieldName});
     }
 
     return body;
@@ -549,8 +511,9 @@ Function ComplexTypeDescription::CompareFun()
     vector<string> body;
 
     IfElseStatementCpp statement;
-    for(const auto& field : _fields)
+    for(auto field : _fields)
     {
+        if(IsBitField(field)){ field.fieldName += ".value"; }
         auto cond = fmt("(obj1.%s == obj2.%s) == false", {field.fieldName,
                                                           field.fieldName});
         statement.AddCase(cond, "return false;");
@@ -562,4 +525,10 @@ Function ComplexTypeDescription::CompareFun()
     fun.SetBody(body);
 
     return fun;
+}
+
+bool ComplexTypeDescription::IsBitField(const StructField &field)
+{
+    return field.type.second == fieldType::std &&
+           ((field.fieldSize.GetConstPart() % 8) > 0);
 }

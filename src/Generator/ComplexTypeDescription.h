@@ -1,4 +1,4 @@
-#ifndef COMPLEXTYPEDESCRIPTION_H
+﻿#ifndef COMPLEXTYPEDESCRIPTION_H
 #define COMPLEXTYPEDESCRIPTION_H
 
 #include <string>
@@ -63,10 +63,11 @@ public:
     vector<string> Declaration();
 
     vector<string> SerDesDefinition(FunType funType, bool hasStatic = true);
-    string SerDesCall(FunType type, string structName) const;
-    string SerCall() const;
-    string SerCall(string pointerName, string paramName) const;
-    string DesCall(string pointerName, string paramName) const;
+
+    string SerCall(string pointerName, string offset, string paramName) const;
+    string DesCall(string pointerName, string offset, string paramName,
+                   string op_status) const;
+
     string AsVarDecl() const;
     vector<string> SizeCalcFun(FunType type, bool hasStatic = true);
     string SizeCalcFunCall(FunType type) const;
@@ -101,6 +102,8 @@ private:
 
     Strings DesCheckInitValue(const StructField &field);
     Strings DesCheckValueRange(const StructField &field);
+
+    static bool IsBitField(const StructField &field);
 
 };
 

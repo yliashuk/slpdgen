@@ -162,31 +162,8 @@ Status Formater::AddFieldToStruct(vector<Struct> &list, string structName,
     auto status = ContentCheck(list,it,structName, dataStruct.varName);
     if(status == Ok)
     {
-        auto isStd = VectorIsContained(GetStandartTypes(), dataStruct.type);
-        FieldData data(dataStruct, isStd);
+        FieldData data(dataStruct);
         it->second.push_back({dataStruct.varName, data});
     }
     return status;
-}
-
-vector<string> Formater::GetStandartTypes()
-{
-    vector<string> strings;
-
-    strings.push_back("char");
-    strings.push_back("s8");
-    strings.push_back("s16");
-    strings.push_back("s32");
-    strings.push_back("s64");
-    strings.push_back("i8");
-    strings.push_back("i16");
-    strings.push_back("i32");
-    strings.push_back("i64");
-    strings.push_back("u8");
-    strings.push_back("u16");
-    strings.push_back("u32");
-    strings.push_back("u64");
-    strings.push_back("f32");
-    strings.push_back("f64");
-    return strings;
 }

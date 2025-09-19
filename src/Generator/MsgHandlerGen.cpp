@@ -44,14 +44,13 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
          << "op_status = &status_Buf;"
          << _header.AsVarDecl() + ";";
 
-    body << fmt("%{%s->}%s;", {_options.isCpp ? "base" : "", _header.
-                                  SerDesCall(FunType::Des,"&header")});
+    body << fmt("size_t offset = %{%s->}%s;",
+    {_options.isCpp ? "base" : "", _header.DesCall("l_p", "0", "&header", "op_status")});
 
     IfElseStatementCpp handler;
     handler.AddCase("*op_status == 0", fmt("return(%s)1;", {returnType}));
 
     body << handler.GetDefinition();
-    body << "l_p += " + _header.Size().Get() + ";\n";
 
     SwitchCpp switchOperator;
     switchOperator.SetSwitchingParameter("header." + CodeVarName());
@@ -106,14 +105,14 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
             }
 
             string prefix = _options.isCpp ? "base->" : "";
-            buffer << prefix + rdm->packet->SerDesCall(FunType::Des,"&str") + ";";
+            buffer << prefix + rdm->packet->DesCall("l_p", "offset", "&str", "op_status") + ";";
 
             IfElseStatementCpp handler;
             handler.AddCase("*op_status == 0", "return(" + returnType + ")1;");
             buffer << handler.GetDefinition();
 
             buffer << receiveMsgCbCall;
-            if_else_dataLenStatement.AddCase("header.dataLen >= size.r", buffer);
+            if_else_dataLenStatement.AddCase("header.dataLen * 8 >= size.r", buffer);
         }
         else
         {
@@ -305,25 +304,26 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
         }
     }
 
+    prefix = _options.isCpp ? "" : toLower(_fName);
+    body << fmt("header.%s = %{%s_}%s;", {CodeVarName(), prefix, msg.command});
+
     if(_options.isCpp)
     {
-        body << fmt("header.%s = %s;", {CodeVarName(), msg.command});
-
-        body << fmt("std::unique_ptr<char[]> alloc(new char[%s + header.dataLen]);",
-        {_header.Size().Get()});
+        body << fmt("std::unique_ptr<char[]> alloc(new char[(%s%{ + %s} + 7) / 8]);",
+        {_header.Size().Get(), msg.packet ? "header.dataLen" : ""});
 
         body << "char *buffer = alloc.get();";
     }
     else
     {
-        body << fmt("header.%s = %s_%s;", {CodeVarName(), toLower(_fName), msg.command});
-        body << fmt("char buffer[%s + header.dataLen];", {_header.Size().Get()});
+        body << fmt("char buffer[(%s%{ + %s}) / 8 + 1];",
+        {_header.Size().Get(), msg.packet ? "header.dataLen" : ""});
     }
 
-    body << (_options.isCpp ? "base->" : "") + _header.SerCall("buffer", "&header");
+    body << (_options.isCpp ? "base->" : "") + _header.SerCall("buffer", "0", "&header") + ";";
     if(msg.packet) {
         body << (_options.isCpp ? "base->" : "") +
-                msg.packet->SerCall("buffer + " + _header.Size().Get(), "str");
+                msg.packet->SerCall("buffer", _header.Size().Get(), "str") + ";";
     }
 
     vector<string> params;
@@ -331,7 +331,8 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
     if(_options.hasAddr){ params += AddrParameter().name; }
 
     params += "buffer";
-    params += _header.Size().Get() + (msg.packet ? " + header.dataLen" : "");
+    params += fmt("(%s%{ + %s} + 7) / 8",
+    {_header.Size().Get(), msg.packet ? "header.dataLen" : ""});
 
     if(!_options.isCpp)
     {

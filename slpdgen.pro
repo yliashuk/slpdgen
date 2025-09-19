@@ -47,10 +47,12 @@ QMAKE_EXTRA_COMPILERS += bisonheader
 
 HEADERS += \
     src/Analyzer/Rule.h \
+    src/CppConstructs/FunctionsSrc.h \
     src/Generator/CalcSizeHelper.h \
     src/Generator/CodeGenerator.h \
     src/Generator/MsgHandlerGen.h \
     src/Generator/RulesDefinedMessage.h \
+    src/Generator/StdTypeHandler.h \
     src/Utils/ContainerUtils.h \
     src/Utils/StringUtils.h \
     src/Analyzer/Analyzer.h \
@@ -75,6 +77,7 @@ SOURCES += \
     src/Generator/CodeGenerator.cpp \
     src/Generator/MsgHandlerGen.cpp \
     src/Generator/RulesDefinedMessage.cpp \
+    src/Generator/StdTypeHandler.cpp \
     src/Utils/StringUtils.cpp \
     src/Analyzer/Formater.cpp \
     src/Analyzer/StructFieldData.cpp \

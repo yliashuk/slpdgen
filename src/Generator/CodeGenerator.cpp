@@ -2,6 +2,7 @@
 #include <fstream>
 #include "VersionInfo.h"
 #include "MsgHandlerGen.h"
+#include "CppConstructs/FunctionsSrc.h"
 
 CodeGenerator::CodeGenerator(AppOptions options, Formater exchangeDescription)
 {
@@ -155,39 +156,39 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
     decl.SetName(IntermediateStruct.first);
     for(auto var: IntermediateStruct.second)
     {
-        if(var.second.isStdType)
+        auto type = var.second.type;
+        if(auto stdType = _stdTypeHandler.CheckType(type))
         {
-            auto fieldType = ConvertToCStdType(var.second.type);
-            decl.addField(var, {fieldType.first, fieldType::std}, fieldType.second);
+            decl.addField(var, {stdType->first, fieldType::std}, stdType->second);
         } else
         {
-            auto it = FindInVector(_types, var.second.type);
+            auto it = FindInVector(_types, type);
             if(it != _types.end())
             {
                 if(it->second == fieldType::Struct)
                 {
-                    auto p = FindByName(_structDeclarations, var.second.type);
+                    auto p = FindByName(_structDeclarations, type);
                     decl.addField(var, {p->GetName(), fieldType::Struct}, p->Size());
                 }
                 else if(it->second == fieldType::Enum)
                 {
-                    auto p = FindByName(_enumDeclarations, var.second.type);
+                    auto p = FindByName(_enumDeclarations, type);
                     decl.addField(var, {p->GetName(), fieldType::Enum}, p->Size());
                 }
                 else if(it->second == fieldType::Code)
                 {
-                    auto p = FindByName(_enumDeclarations, var.second.type);
+                    auto p = FindByName(_enumDeclarations, type);
                     decl.addField(var, {p->GetName(), fieldType::Code}, p->Size());
                 }
                 else if(it->second == fieldType::Type)
                 {
-                    auto p = FindByName(_enumDeclarations, var.second.type);
+                    auto p = FindByName(_enumDeclarations, type);
                     decl.addField(var, {p->GetName(), fieldType::Type}, p->Size());
                 }
             }
             else {
                 throw invalid_argument(fmt("type not found: \"%s\" in \"%s\"", {
-                                               var.second.type, IntermediateStruct.first}));
+                                               type, IntermediateStruct.first}));
             }
         }
     }
@@ -264,7 +265,8 @@ void CodeGenerator::GenerateHeaderQt()
 
     oStream << endl;
     oStream << fmt("namespace %sSpace{\n", {_fName});
-    oStream << endl;
+
+    oStream << _stdTypeHandler.BitFieldTypes();
 
     oStream << EnumErrorCode().Declaration(false) << endl;
 
@@ -341,8 +343,7 @@ void CodeGenerator::GenerateSource()
     oStream << "#include <string.h>" << endl;
     oStream << fmt("#include \"%s.h\"\n", {_fName});
 
-    oStream << endl;
-    oStream << MemoryManager();
+    oStream << MemoryManager;
     oStream << endl;
     oStream << CalcSizeHelper::CSizeDef();
     oStream << endl;
@@ -383,7 +384,9 @@ void CodeGenerator::GenerateSourceQt()
     oStream << "#include <string.h>" << endl;
     oStream << fmt("#include \"%s.h\"", {_fName}) << endl;
     oStream << fmt("namespace %sSpace \n{\n", {_fName});
-
+    oStream << BitMaskFun;
+    oStream << MinFun;
+    oStream << BitCpyFun;
     oStream << endl;
     oStream << CalcSizeHelper::CSizeDef();
     oStream << endl;
@@ -435,29 +438,6 @@ void CodeGenerator::GenerateSourceQt()
 
     oStream << "\n}\n"; //end namespace
     oStream.close();
-}
-
-vector<string> CodeGenerator::MemoryManager()
-{
-    vector<string> strings;
-
-    strings << "static char* buf_p;";
-
-    Function fun;
-    fun.SetStaticDeclaration(true);
-    fun.SetDeclaration("allocate", "char*", Parameter{"size_t", "size"});
-
-    vector<string> body;
-
-    body << "char* tmp = buf_p;"
-         << "buf_p += size;"
-         << "return tmp;";
-
-    fun.SetBody(body);
-
-    strings << fun.Definition();
-
-    return strings;
 }
 
 Function CodeGenerator::InitProtoFun()
@@ -597,24 +577,4 @@ Function CodeGenerator::LocalParamsFun()
     localParamsFun.SetBody(body);
 
     return localParamsFun;
-}
-
-pair<string,size_t> CodeGenerator::ConvertToCStdType(string slpdType)
-{
-    if(slpdType ==  "char")  return {"char",1};
-    if(slpdType ==  "s8")  return {"int8_t",1};
-    if(slpdType ==  "s16") return {"int16_t",2};
-    if(slpdType ==  "s32") return {"int32_t",4};
-    if(slpdType ==  "s64") return {"int64_t",8};
-    if(slpdType ==  "i8")  return {"int8_t",1};
-    if(slpdType ==  "i16") return {"int16_t",2};
-    if(slpdType ==  "i32") return {"int32_t",4};
-    if(slpdType ==  "i64") return {"int64_t",8};
-    if(slpdType ==  "u8")  return {"uint8_t",1};
-    if(slpdType ==  "u16") return {"uint16_t",2};
-    if(slpdType ==  "u32") return {"uint32_t",4};
-    if(slpdType ==  "u64") return {"uint64_t",8};
-    if(slpdType ==  "f32") return {"float",4};
-    if(slpdType ==  "f64") return {"double",8};
-    throw invalid_argument("ConvertTo_C_stdType: received not std type");
 }

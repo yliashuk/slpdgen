@@ -20,9 +20,8 @@ struct ComplexStatus
 struct FieldData
 {
     FieldData(){}
-    FieldData(FieldInfo data, bool isStdType)
-        :isStdType(isStdType),
-         isArrayField(data.isNumOfCeils),
+    FieldData(FieldInfo data)
+        :isArrayField(data.isNumOfCeils),
          hasDynamicSize(data.withLenDefiningVar),
          lenDefiningVar(data.lenDefiningVar),
          type(data.type),
@@ -38,7 +37,6 @@ struct FieldData
             value = data.constLenDefiningVar;
     }
 
-    bool   isStdType    = false;
     bool   isArrayField = false;
     bool   hasDynamicSize = false;
     string lenDefiningVar;
@@ -80,8 +78,6 @@ private:
 
     Status AddFieldToStruct(vector<Struct>& list, string structName,
                             FieldInfo dataStruct);
-
-    vector<string> GetStandartTypes();
 };
 
 #endif // FORMATER_H
