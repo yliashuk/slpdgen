@@ -65,10 +65,10 @@ string CalcSizeHelper::CalcDesSimpleArrTypeSize(string typePrefix,
                                             StructField field)
 {
     string numOfElements = FieldSize(field, Des);
-    string prefix = field.data.isStdType ? string{} : typePrefix;
+    string prefix = field.type.second == fieldType::std ? string{} : typePrefix;
 
     // type size after deserialization
-    string typeSize = fmt("sizeof(%s%s)",{prefix, field.type.first});
+    string typeSize = fmt("sizeof(%s%s) * 8",{prefix, field.type.first});
 
     auto dynArrSize = typeSize + " * " + numOfElements;
 

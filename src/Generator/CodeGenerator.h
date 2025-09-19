@@ -1,6 +1,7 @@
 #ifndef CODEGENERATOR_H
 #define CODEGENERATOR_H
 
+#include <set>
 #include <memory>
 #include "AppOptions.h"
 #include "Analyzer/Formater.h"
@@ -12,6 +13,7 @@
 #include "CppConstructs/StructCpp.h"
 #include "RulesDefinedMessage.h"
 #include "MsgHandlerGen.h"
+#include "StdTypeHandler.h"
 
 using namespace CppConstructs;
 
@@ -31,6 +33,7 @@ private:
     vector<EnumDescription> _enumDeclarations;
     Formater _exchangeDescription;
 
+    StdTypeHandler _stdTypeHandler;
     vector<RulesDefinedMessage> _rdms;
     std::unique_ptr<MsgHandlerGen> _handlerGen;
 
@@ -61,9 +64,6 @@ private:
     Function SetCbsFun();
     Function ResetCbsFun();
     StructCpp CbsStruct();
-    vector<string> MemoryManager();
-
-    static pair<string,size_t> ConvertToCStdType(string slpdType);
 };
 
 #endif // CODEGENERATOR_H
