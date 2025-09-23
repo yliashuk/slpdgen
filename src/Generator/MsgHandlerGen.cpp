@@ -92,7 +92,9 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
         {
             buffer.clear();
             if(!_options.isCpp) { buffer += checkReceiveMsgCbPtr; }
-            buffer << rdm->packet->GetCodeName() + " str = {};";
+
+            buffer << fmt("%s str = {%s};", {rdm->packet->GetCodeName(),
+                                             _options.isCpp ? "" : "0"});
 
             // for print call calc size fun after check header.type
             callCalcFun = pCallPrefix + rdm->packet->SizeCalcFunCall(Des);

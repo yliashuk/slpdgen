@@ -5,7 +5,9 @@
 using namespace std;
 using namespace Utils;
 
-optional<pair<string, size_t> > StdTypeHandler::CheckType(string slpdType)
+StdTypeHandler::StdTypeHandler(AppOptions options) : _options(options){}
+
+optional<pair<string, size_t> > StdTypeHandler::CheckType(string slpdType, bool isArray)
 {
     if(slpdType == "char") return {{"char", 8}};
     if(slpdType == "bool") return {{"bool", 1}};
@@ -18,13 +20,16 @@ optional<pair<string, size_t> > StdTypeHandler::CheckType(string slpdType)
         size_t size = strtol(slpdType.substr(1, slpdType.size()).data(), NULL, 10);
         string prefixT = kind == "u" ? "u" : "";
 
-        string type = IntType(prefixT, size);
-        if(size % 8) { // bitfield
+        if(size % 8 && isArray) // use slpd_bit_field type for bit array elements
+        {
+            string type = SlpdType(kind, size);
             BitType bitType = {type, IntType(prefixT, RoundUp(size)), size};
             if(!contains(_bitFieldTypes, bitType)){ _bitFieldTypes += bitType; }
-        }
 
-        return {{type, size}};
+            return {{type, size}};
+        } else {
+            return {{IntType(prefixT, RoundUp(size)), size}};
+        }
     }
     return {};
 }
@@ -38,11 +43,12 @@ int StdTypeHandler::RoundUp(int number)
 
 string StdTypeHandler::IntType(string prefixT, size_t size)
 {
-    if(size % 8 == 0) {
-        return fmt("%sint%s_t", {prefixT, to_string(size)});
-    } else {
-        return fmt("slpd_%s%s", {prefixT, to_string(size)});
-    }
+    return fmt("%sint%s_t", {prefixT, to_string(size)});
+}
+
+string StdTypeHandler::SlpdType(string prefixT, size_t size)
+{
+    return fmt("slpd_%s%s", {prefixT, to_string(size)});
 }
 
 std::vector<string> StdTypeHandler::BitFieldTypes()
@@ -50,16 +56,37 @@ std::vector<string> StdTypeHandler::BitFieldTypes()
     vector<string> body = {};
    if(!_bitFieldTypes.empty())
    {
-        body << BitFieldTemplate;
-        for(auto type : _bitFieldTypes)
-        {
-            body << fmt("using %s = slpd_bit_field<%s, %s>;",
-            {type.name, type.cppType, to_string(type.size)});
-        }
-        body << "";
+       body << (_options.isCpp ? BitFieldTemplate : BitFieldTemplateC);
+
+       string cppFmt = "using %s = slpd_bit_field<%s, %s>;";
+
+       for(auto type : _bitFieldTypes)
+       {
+           if(_options.isCpp) {
+               body << fmt(cppFmt, {type.name, type.cppType, to_string(type.size)});
+           }
+           else {
+               string uName = type.name;
+               toUpper(uName);
+               body << fmt(BitFieldCFmt, {uName, uName, type.name, type.cppType,
+                                          to_string(type.size), uName});
+           }
+       }
    }
 
    return body;
+}
+
+string StdTypeHandler::SlpdToAlignedCppType(string stdSlpdType)
+{
+    string kind = {stdSlpdType.at(5)};
+    if(contains(Strings{"i", "u"}, kind))
+    {
+        string prefixT = kind == "u" ? "u" : "";
+        int size = strtol(stdSlpdType.substr(6, stdSlpdType.size()).data(), NULL, 10);
+        return IntType(prefixT, RoundUp(size));
+    }
+    return "";
 }
 
 bool StdTypeHandler::BitType::operator==(const StdTypeHandler::BitType& type) const

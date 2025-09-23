@@ -1,5 +1,6 @@
 #include "ComplexTypeDescription.h"
 #include <Utils/StringUtils.h>
+#include "StdTypeHandler.h"
 
 ComplexTypeDescription::ComplexTypeDescription(){}
 
@@ -126,9 +127,10 @@ vector<string> ComplexTypeDescription::Declaration()
         }
         else
         {
+            string bitWidth =  IsSimpleBitField(var) ? var.fieldSize.Get() : "";
             string p = isDynamicArray ? "*" : "";
             string var = isStaticArray ? fmt("%s[%s]", {fieldName, len}) : fieldName;
-            fields += {fieldT, p + var, comment};
+            fields += {fieldT, p + var, bitWidth, comment};
         }
     }
 
@@ -322,12 +324,7 @@ void ComplexTypeDescription::SetSerDesDeclaration(Function &function, FunType ty
     params.push_back({"size_t", "offset"});
     params.push_back({blockName, "*str"});
 
-    if(type == Des)
-    {
-        if(_blockType == ComplexType::Header && !_options.isCpp) {
-            string fName = _options.fileName;
-            params.insert(params.begin(), {fmt("%s_Obj*", {toLower(fName)}), "obj"});
-        }
+    if(type == Des) {
         params.push_back({"uint8_t*", "op_status"});
     }
     String serDesPrefix = type == Ser ? _pSer : _pDes;
@@ -339,27 +336,43 @@ Strings ComplexTypeDescription::SerArrayField(const StructField& field)
     const String& fieldSize = field.fieldSize.Get();
     const String& fieldName = field.fieldName;
     const String& elementSize = field.arrayTypeSize.Get();
+    auto type = field.type.first;
     auto metaType = field.type.second;
+    Strings body;
     Strings loopBody;
 
     if(metaType != fieldType::Struct)
     {
-        string copyFmt = "size += bitcpy(p, size, &str->%s[i], 0, %s);";
+        if(IsArrayBitField(field))
+        {
+            string varType = StdTypeHandler::SlpdToAlignedCppType(type);
+            body << fmt("%s %s_value = 0;", {varType, fieldName});
 
-        loopBody << fmt(copyFmt, {fieldName, elementSize});
-
+            loopBody << fmt("%s_value = str->%s[i].value;", {fieldName, fieldName});
+            string copyFmt = "size += bitcpy(p, size, &%s_value, 0, %s);";
+            loopBody << fmt(copyFmt, {fieldName, elementSize});
+        } else if(IsArrayAlignedField(field)) {
+            string copyFmt = "size += bitcpy(p, size, &str->%s[0], 0, %s * %s);";
+            body << fmt(copyFmt, {fieldName, elementSize, fieldSize});
+        } else {
+            string copyFmt = "size += bitcpy(p, size, &str->%s[i], 0, %s);";
+            loopBody << fmt(copyFmt, {fieldName, elementSize});
+        }
     } else if(metaType == fieldType::Struct)
     {
-        String type = field.type.first;
         type = fmt("%s%s_%s",{_pSer, FieldTypePrefix(metaType), type});
         loopBody << fmt("size += %s(p, size, &str->%s[i]);", {type, fieldName});
     }
 
-    ForLoopCpp loop;
-    loop.SetDeclaration("int i = 0","i < " + fieldSize, "i++");
-    loop.SetBody(loopBody);
+    if(!loopBody.empty())
+    {
+        ForLoopCpp loop;
+        loop.SetDeclaration("int i = 0","i < " + fieldSize, "i++");
+        loop.SetBody(loopBody);
+        body << loop.Definition();
+    }
 
-    return loop.Definition();
+    return body;
 }
 
 Strings ComplexTypeDescription::DesArrayField(const StructField &field)
@@ -367,6 +380,7 @@ Strings ComplexTypeDescription::DesArrayField(const StructField &field)
     const String& fieldSize = field.fieldSize.Get();
     const String& fieldName = field.fieldName;
     const String& elementSize = field.arrayTypeSize.Get();
+    auto type = field.type.first;
     auto metaType = field.type.second;
 
     bool isDynamicArray = field.data.hasDynamicSize;
@@ -377,20 +391,33 @@ Strings ComplexTypeDescription::DesArrayField(const StructField &field)
         body << ArrayFieldAllocation(field);
     }
 
+    if(metaType != fieldType::Struct)
     {
-        if(metaType != fieldType::Struct)
+        if(IsArrayBitField(field))
         {
+            string varType = StdTypeHandler::SlpdToAlignedCppType(type);
+            body << fmt("%s %s_value = 0;", {varType, fieldName});
+
+            string copyFmt = "size += bitcpy(&%s_value, 0, p, size, %s);";
+            loopBody << fmt(copyFmt, {fieldName, elementSize});
+            loopBody << fmt("str->%s[i].value = %s_value;", {fieldName, fieldName});
+        } else if(IsArrayAlignedField(field)) {
+            string copyFmt = "size += bitcpy(&str->%s[0], 0, p, size, %s * %s);";
+            body << fmt(copyFmt, {fieldName, elementSize, fieldSize});
+        } else {
             string copyFmt = "size += bitcpy(&str->%s[i], 0, p, size, %s);";
             loopBody << fmt(copyFmt, {fieldName, elementSize});
         }
-        else if(metaType == fieldType::Struct)
-        {
-            String type = field.type.first;
-            type = fmt("%s%s_%s",{_pDes, FieldTypePrefix(metaType), type});
-            loopBody << fmt("size += %s(p, size, &str->%s[i], op_status);",
-                            {type, fieldName});
-        }
+    }
+    else if(metaType == fieldType::Struct)
+    {
+        type = fmt("%s%s_%s",{_pDes, FieldTypePrefix(metaType), type});
+        loopBody << fmt("size += %s(p, size, &str->%s[i], op_status);",
+                        {type, fieldName});
+    }
 
+    if(!loopBody.empty())
+    {
         ForLoopCpp loop;
         loop.SetDeclaration("int i = 0","i < " + fieldSize, "i++");
         loop.SetBody(loopBody);
@@ -427,6 +454,8 @@ Strings ComplexTypeDescription::SerSimpleField(const StructField &field)
 {
     auto metaType = field.type.second;
     auto hasInitValue = field.data.hasInitValue;
+    auto isBF = IsSimpleBitField(field);
+    const String& type = field.type.first;
     const String& fieldName = field.fieldName;
     const String& fieldSize = field.fieldSize.Get();
 
@@ -437,15 +466,17 @@ Strings ComplexTypeDescription::SerSimpleField(const StructField &field)
         body << fmt("str->%s = %s;", {fieldName, value});
     }
 
-    if(field.type.second != fieldType::Struct) {
-        string copyFmt = "size += bitcpy(p, size, &str->%s, 0, %s);";
-        body << fmt(copyFmt, {fieldName, fieldSize});
-    } else if(field.type.second == fieldType::Struct) {
+    if(metaType != fieldType::Struct)
+    {
+        if(isBF){body << fmt("%s %s = str->%s;", {type, fieldName, fieldName});}
+        string var = sc(isBF, {"%s", "str->%s"}, fieldName);
+        string copyFmt = "size += bitcpy(p, size, &%s, 0, %s);";
+        body << fmt(copyFmt, {var, fieldSize});
+    } else if(metaType == fieldType::Struct) {
         String type = field.type.first;
         type = fmt("%s%s_%s",{_pSer, FieldTypePrefix(metaType), type});
         body << fmt("size += %s(p, size, &str->%s);", {type, fieldName});
     }
-
     return body;
 }
 
@@ -458,10 +489,19 @@ Strings ComplexTypeDescription::DesSimpleField(const StructField &field)
     const String& fieldSize = field.fieldSize.Get();
     Strings body;
 
-    if(field.type.second != fieldType::Struct) {
-        string copyFmt = "size += bitcpy(&str->%s, 0, p, size, %s);";
-        body << fmt(copyFmt, {fieldName, fieldSize});
-    } else if(field.type.second == fieldType::Struct) {
+    if(metaType != fieldType::Struct)
+    {
+        if(IsSimpleBitField(field))
+        {
+            body << fmt("%s %s = 0;", {type, fieldName});
+            string copyFmt = "size += bitcpy(&%s, 0, p, size, %s);";
+            body << fmt(copyFmt, {fieldName, fieldSize});
+            body << fmt("str->%s = %s;", {fieldName, fieldName});
+        } else {
+            string copyFmt = "size += bitcpy(&str->%s, 0, p, size, %s);";
+            body << fmt(copyFmt, {fieldName, fieldSize});
+        }
+    } else if(metaType == fieldType::Struct) {
         type = fmt("%s%s_%s",{_pDes, typePrefix, type});
         body << fmt("size += %s(p, size, &str->%s, op_status);", {type, fieldName});
     }
@@ -513,7 +553,6 @@ Function ComplexTypeDescription::CompareFun()
     IfElseStatementCpp statement;
     for(auto field : _fields)
     {
-        if(IsBitField(field)){ field.fieldName += ".value"; }
         auto cond = fmt("(obj1.%s == obj2.%s) == false", {field.fieldName,
                                                           field.fieldName});
         statement.AddCase(cond, "return false;");
@@ -527,8 +566,23 @@ Function ComplexTypeDescription::CompareFun()
     return fun;
 }
 
-bool ComplexTypeDescription::IsBitField(const StructField &field)
+bool ComplexTypeDescription::IsSimpleBitField(const StructField &field)
 {
     return field.type.second == fieldType::std &&
-           ((field.fieldSize.GetConstPart() % 8) > 0);
+            !field.data.isArrayField &&
+            ((field.fieldSize.GetConstPart() % 8) > 0);
+}
+
+bool ComplexTypeDescription::IsArrayBitField(const StructField &field)
+{
+    return field.type.second == fieldType::std &&
+            field.data.isArrayField &&
+            ((field.arrayTypeSize.GetConstPart() % 8) > 0);
+}
+
+bool ComplexTypeDescription::IsArrayAlignedField(const StructField &field)
+{
+    return field.type.second == fieldType::std &&
+            field.data.isArrayField &&
+            ((field.arrayTypeSize.GetConstPart() % 8) == 0);
 }

@@ -5,11 +5,8 @@
 #include "CppConstructs/FunctionsSrc.h"
 
 CodeGenerator::CodeGenerator(AppOptions options, Formater exchangeDescription)
-{
-    _options = options;
-    _fName = options.fileName;
-    _exchangeDescription = exchangeDescription;
-}
+    : _fName(options.fileName), _options(options),
+      _exchangeDescription(exchangeDescription), _stdTypeHandler(options){}
 
 void CodeGenerator::Generate()
 {
@@ -157,7 +154,7 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
     for(auto var: IntermediateStruct.second)
     {
         auto type = var.second.type;
-        if(auto stdType = _stdTypeHandler.CheckType(type))
+        if(auto stdType = _stdTypeHandler.CheckType(type, var.second.isArrayField))
         {
             decl.addField(var, {stdType->first, fieldType::std}, stdType->second);
         } else
@@ -211,7 +208,8 @@ void CodeGenerator::GenerateHeader()
     oStream << fmt("#define %s_H", {toUpper(_fName)}) << endl;
     oStream << endl;
     oStream << "#include <stdint.h>" << endl;
-    oStream << endl;
+
+    oStream << _stdTypeHandler.BitFieldTypes() << endl;
 
     oStream << EnumErrorCode().Declaration(false) << endl;
 
@@ -344,6 +342,11 @@ void CodeGenerator::GenerateSource()
     oStream << fmt("#include \"%s.h\"\n", {_fName});
 
     oStream << MemoryManager;
+
+    oStream << BitMaskFun;
+    oStream << MinFun;
+    oStream << BitCpyFun;
+
     oStream << endl;
     oStream << CalcSizeHelper::CSizeDef();
     oStream << endl;

@@ -44,5 +44,5 @@ Strings StructCpp::Declaration() const
             + (_hasTypeDef ? "" : " " + _structName)};
     String end = "}" + (_hasTypeDef ? _structName : "") + ";";
 
-    return header << "{" << fmt("\t%s %s;%{ //%s}", _fields) << end;
+    return header << "{" << fmt("\t%s %s%{ : %s};%{ //%s}", _fields) << end;
 }

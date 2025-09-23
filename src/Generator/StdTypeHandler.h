@@ -5,14 +5,21 @@
 #include <vector>
 #include <string>
 #include <optional>
+#include <AppOptions.h>
 
 class StdTypeHandler
 {
 public:
-    std::optional<std::pair<std::string, size_t>> CheckType(std::string slpdType);
-    std::vector<std::string> BitFieldTypes();
+    StdTypeHandler(AppOptions options);
 
+    std::optional<std::pair<std::string, size_t>>
+    CheckType(std::string slpdType, bool isArray);
+
+    std::vector<std::string> BitFieldTypes();
+    static std::string SlpdToAlignedCppType(std::string stdSlpdType);
 private:
+    AppOptions _options;
+
     struct BitType
     {
         std::string name;
@@ -25,7 +32,8 @@ private:
     std::vector<BitType> _bitFieldTypes;
 
     static int RoundUp(int number);
-    static std::string IntType(std::string prefixT, size_t sizeT);
+    static std::string IntType(std::string prefixT, size_t size);
+    static std::string SlpdType(std::string prefixT, size_t size);
     std::vector<std::string> BitFieldTypeTemplate();
 };
 

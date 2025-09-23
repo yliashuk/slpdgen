@@ -54,16 +54,28 @@ static size_t bitcpy(void* dst, size_t dst_off, const void * src, size_t src_off
 const std::string BitFieldTemplate = R"(
 #ifndef SLPD_BIT_FIELD
 #define SLPD_BIT_FIELD
-
 template<typename T, int size>
 struct slpd_bit_field
 {
     T value : size;
     bool operator==(slpd_bit_field<T, size> obj) const {return value == obj.value;}
 };
-
 #endif // SLPD_BIT_FIELD
 )";
+
+const std::string BitFieldTemplateC = R"(
+#ifndef SLPD_C_BIT_FIELD
+#define SLPD_C_BIT_FIELD(name, type, size)  \
+typedef struct {                            \
+    type value : size;                      \
+}name;
+#endif // SLPD_C_BIT_FIELD)";
+
+const std::string BitFieldCFmt = R"(
+#ifndef %s
+#define %s
+SLPD_C_BIT_FIELD(%s, %s, %s)
+#endif // %s)";
 
 const std::string MemoryManager = R"(
 static char* buf_p;

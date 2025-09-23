@@ -13,13 +13,14 @@ namespace CppConstructs
         {
             String type;
             String name;
+            String bitWidth;
             String comment;
 
-            Field(const String& t, const String& n, const String& c = "")
-                : type(t), name(n), comment(c){}
+            Field(String t, String n, String bw = "", String c = "")
+                : type(t), name(n), bitWidth(bw), comment(c){}
 
             Strings toStrings() const {
-                return {type, name, comment};
+                return {type, name, bitWidth, comment};
             }
         };
 

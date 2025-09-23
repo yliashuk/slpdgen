@@ -1,4 +1,4 @@
-﻿#ifndef COMPLEXTYPEDESCRIPTION_H
+#ifndef COMPLEXTYPEDESCRIPTION_H
 #define COMPLEXTYPEDESCRIPTION_H
 
 #include <string>
@@ -103,7 +103,9 @@ private:
     Strings DesCheckInitValue(const StructField &field);
     Strings DesCheckValueRange(const StructField &field);
 
-    static bool IsBitField(const StructField &field);
+    static bool IsSimpleBitField(const StructField &field);
+    static bool IsArrayBitField(const StructField &field);
+    static bool IsArrayAlignedField(const StructField &field);
 
 };
 

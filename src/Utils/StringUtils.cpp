@@ -121,3 +121,9 @@ Strings &Utils::operator<<(Strings &strs, const String &str)
 {
     return strs += str;
 }
+
+String Utils::sc(bool condition, std::pair<String, String> fmtTemplates, String str)
+{
+    String temp = condition ? fmtTemplates.first : fmtTemplates.second;
+    return fmt(temp, {str});
+}

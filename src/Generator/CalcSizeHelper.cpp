@@ -94,9 +94,9 @@ Function CalcSizeHelper::CalcSizeFunDecl(string name, FunType type, bool hasStat
 Strings CalcSizeHelper::CSizeDef()
 {
     StructCpp::Fields fields {
-        {"size_t", "s", "static part"},
-        {"size_t", "d", "dynamic part"},
-        {"size_t", "r", "size in raw memory"}
+        {"size_t", "s", "", "static part"},
+        {"size_t", "d", "", "dynamic part"},
+        {"size_t", "r", "", "size in raw memory"}
     };
 
     StructCpp str;

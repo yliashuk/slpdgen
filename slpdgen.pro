@@ -76,7 +76,6 @@ SOURCES += \
     src/Generator/CalcSizeHelper.cpp \
     src/Generator/CodeGenerator.cpp \
     src/Generator/MsgHandlerGen.cpp \
-    src/Generator/RulesDefinedMessage.cpp \
     src/Generator/StdTypeHandler.cpp \
     src/Utils/StringUtils.cpp \
     src/Analyzer/Formater.cpp \

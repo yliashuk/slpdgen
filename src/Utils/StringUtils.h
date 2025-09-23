@@ -21,6 +21,10 @@ namespace Utils
     String& toLower(String& str);
     String& toUpper(String& str);
 
+    /// String condition
+    /// Returns formatted string using one of two templates based on condition
+    String sc(bool condition, std::pair<String, String> fmtTemplates, String str);
+
     template<typename T> Strings Stringifier(const T& t) {return t.toStrings();}
 
     template<typename T, template<class...> class Container>
