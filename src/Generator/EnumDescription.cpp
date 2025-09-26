@@ -5,8 +5,10 @@ using namespace Utils;
 
 EnumDescription::EnumDescription(){}
 
-size_t EnumDescription::Size()
+size_t EnumDescription::Size() const
 {
+    if(_bitWidth) return {_bitWidth};
+
     auto max = std::max_element(fields.begin(), fields.end(), [](auto a, auto b) {
         return a.second < b.second;
     })->second;
@@ -26,21 +28,21 @@ vector<string> EnumDescription::Declaration(bool withEnumText)
         if(fields.back() != var) { content.back() += ","; }
     }
     if(withEnumText) {
-        content << "}" + PrintType() + name + ";"; }
+        content << "}" + PrintType() + _name + ";"; }
     else {
-        content << "}" + _prefix + name + ";";
+        content << "}" + _prefix + _name + ";";
     }
     return content;
 }
 
 void EnumDescription::SetName(string name)
 {
-    this->name = name;
+    this->_name = name;
 }
 
 string EnumDescription::GetName() const
 {
-    return this->name;
+    return this->_name;
 }
 
 void EnumDescription::SetPrefix(string prefix)
@@ -51,6 +53,11 @@ void EnumDescription::SetPrefix(string prefix)
 string EnumDescription::GetPrefix()
 {
     return _prefix;
+}
+
+void EnumDescription::SetBitWidth(size_t size)
+{
+    _bitWidth = size;
 }
 
 string EnumDescription::PrintType()

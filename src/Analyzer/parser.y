@@ -108,10 +108,26 @@ s_base_contents:
          }
          enum_field_parse_input
          END_BLOCK
+       | KW_TYPE WORD COLON WORD ST_BLOCK
+         {
+             enmType = Tp; currBlockName = $2;
+             auto status = formater.AddEnumDeclaration(enmType,currBlockName, GetNum($4));
+             errorPrint(status);
+         }
+         enum_field_parse_input
+         END_BLOCK
        | KW_CODE WORD ST_BLOCK
          {
              enmType = Cd; currBlockName = $2/*.str*/;
              auto status = formater.AddEnumDeclaration(enmType, currBlockName);
+             errorPrint(status);
+         }
+         enum_field_parse_input
+         END_BLOCK
+       | KW_CODE WORD COLON WORD ST_BLOCK
+         {
+             enmType = Cd; currBlockName = $2/*.str*/;
+             auto status = formater.AddEnumDeclaration(enmType, currBlockName, GetNum($4));
              errorPrint(status);
          }
          enum_field_parse_input
@@ -132,6 +148,14 @@ s_definitions_contents:
                {
                    enmType = SmplEnm;currBlockName = $2;
                    auto status = formater.AddEnumDeclaration(enmType, $2);
+                   errorPrint(status);
+               }
+               enum_field_parse_input
+               END_BLOCK
+             | KW_ENUM WORD COLON WORD ST_BLOCK
+               {
+                   enmType = SmplEnm;currBlockName = $2;
+                   auto status = formater.AddEnumDeclaration(enmType, $2, GetNum($4));
                    errorPrint(status);
                }
                enum_field_parse_input
@@ -224,7 +248,8 @@ enum_field_parse:
             }
           | WORD EQUAL WORD
             {
-                formater.AddEnumField(enmType,currBlockName, $1, GetNum($3));
+                auto status = formater.AddEnumField(enmType,currBlockName, $1, GetNum($3));
+                errorPrint(status);
             }
 
 
@@ -297,11 +322,6 @@ rules_parse:
                 auto status = formater.AddRule(rule, true);
                 errorPrint(status);
             }
-//          | WORD DOUBLE_COLON WORD COLON WORD WORD THEREFORE WORD WORD REVERSE
-//            {
-//                auto status = formater.addRule($3/*.str*/,$5/*.str*/,$6/*.str*/,string($8/*.str*/),string($9/*.str*/),true);
-//                errorPrint(status);
-//            }
 
 %%
 
@@ -343,6 +363,11 @@ void errorPrint(ComplexStatus s)
                  << " does not contain the definition of the length-determining "
                     "variable in the " << '"' << currBlockName << '"' << ", line:"
                  << curr_line<<endl;
+        break;
+        case ValueOutOfRange:
+            cout << "Field " << '"' << s.wrongName << '"'
+                 << " has a value exceeding the enum size "
+                 << '"' << currBlockName << '"' << endl;
         break;
         case Ok:
         break;

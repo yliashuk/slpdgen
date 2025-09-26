@@ -87,8 +87,12 @@ EnumDescription CodeGenerator::EnumDecl(Enum IntermediateEnum, EnumerableType ty
 {
     EnumDescription decl;
     decl.type = type;
-    decl.SetName(IntermediateEnum.first);
-    decl.fields = IntermediateEnum.second;
+    decl.SetName(IntermediateEnum.name);
+    decl.fields = IntermediateEnum.fields;
+
+    if(IntermediateEnum.bitWidth.has_value()) {
+        decl.SetBitWidth(*IntermediateEnum.bitWidth);
+    }
 
     if(!_options.isCpp)
         decl.SetPrefix(toLower(_fName));
@@ -150,8 +154,8 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
     }
 
     decl.SetBlockType(type);
-    decl.SetName(IntermediateStruct.first);
-    for(auto var: IntermediateStruct.second)
+    decl.SetName(IntermediateStruct.name);
+    for(auto var: IntermediateStruct.fields)
     {
         auto type = var.second.type;
         if(auto stdType = _stdTypeHandler.CheckType(type, var.second.isArrayField))
@@ -185,7 +189,7 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
             }
             else {
                 throw invalid_argument(fmt("type not found: \"%s\" in \"%s\"", {
-                                               type, IntermediateStruct.first}));
+                                               type, IntermediateStruct.name}));
             }
         }
     }

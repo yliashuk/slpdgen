@@ -51,15 +51,27 @@ struct FieldData
 };
 
 typedef pair<string, uint32_t> FieldDataEnum;
-typedef pair<string, vector<FieldDataEnum>> Enum;
 typedef pair<string, FieldData> FieldDataStruct;
-typedef pair<string, vector<FieldDataStruct>> Struct;
+
+struct Enum
+{
+    string name;
+    vector<FieldDataEnum> fields;
+    std::optional<size_t> bitWidth;
+};
+
+struct Struct
+{
+    string name;
+    vector<FieldDataStruct> fields;
+};
 
 class Formater
 {
 public:
     Formater();
-    ComplexStatus AddEnumDeclaration(EnumType eTp, string enumName);
+    ComplexStatus AddEnumDeclaration(EnumType eTp, string enumName,
+                                     std::optional<size_t> bitWidth = {});
     ComplexStatus AddEnumField(EnumType eTp,string enumName, string fieldName);
     ComplexStatus AddEnumField(EnumType eTp,string enumName, string fieldName, int code);
     ComplexStatus AddStructDeclaration(DataStructType strTp, string structName);

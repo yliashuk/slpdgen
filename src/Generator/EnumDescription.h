@@ -22,21 +22,23 @@ public:
 
     EnumDescription();
 
-    void SetName(string name);
+    void SetName(string _name);
     string GetName() const;
 
     void SetPrefix(string prefix);
     string GetPrefix();
 
-    size_t Size();
+    void SetBitWidth(size_t size);
+    size_t Size() const;
 
     vector<string> Declaration(bool withEnumText = true);
 
     vector<FieldDataEnum> fields;
 
 private:
-    string name;
+    string _name;
     string _prefix;
+    size_t _bitWidth = 0;
     string PrintType();
 };
 

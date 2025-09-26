@@ -2,7 +2,8 @@
 
 Formater::Formater(){}
 
-ComplexStatus Formater::AddEnumDeclaration(EnumType eTp, string enumName)
+ComplexStatus Formater::AddEnumDeclaration(EnumType eTp, string enumName,
+                                           std::optional<size_t> bitWidth)
 {
     ComplexStatus complexStatus;
     vector<Enum>::iterator it;
@@ -13,12 +14,14 @@ ComplexStatus Formater::AddEnumDeclaration(EnumType eTp, string enumName)
     }
    if(it == enumList.end())
    {
-        Enum _Enum;
-        _Enum.first = enumName;
+        Enum _enum;
+        _enum.name = enumName;
+        _enum.bitWidth = bitWidth;
+
         switch (eTp) {
-        case EnumType::SmplEnm: enumList.push_back(_Enum); break;
-        case EnumType::Tp:      typeList.push_back(_Enum); break;
-        case EnumType::Cd:      codeList.push_back(_Enum); break;
+        case EnumType::SmplEnm: enumList.push_back(_enum); break;
+        case EnumType::Tp:      typeList.push_back(_enum); break;
+        case EnumType::Cd:      codeList.push_back(_enum); break;
         }
         complexStatus = {Ok, enumName};
    }else
@@ -31,18 +34,23 @@ ComplexStatus Formater::AddEnumField(EnumType eTp, string enumName, string field
     Status status {};
     vector<Enum>::iterator it;
     switch (eTp) {
-    case EnumType::SmplEnm: status = ContentCheck(enumList, it, enumName, fieldName);
-        break;
+    case EnumType::SmplEnm: status = ContentCheck(enumList, it, enumName, fieldName); break;
     case EnumType::Tp: status  = ContentCheck(typeList, it, enumName, fieldName); break;
     case EnumType::Cd: status  = ContentCheck(codeList, it, enumName, fieldName); break;
     }
     if(status == Ok)
     {
-        if(!(*it).second.empty())
-            it->second.push_back({fieldName,(*it).second.back().second + 1});
-        else
-            it->second.push_back({fieldName, 0});
+        if(!(*it).fields.empty()) {
+            it->fields.push_back({fieldName,(*it).fields.back().second + 1});
+        } else {
+            it->fields.push_back({fieldName, 0});
+        }
     }
+
+    if(it->bitWidth.has_value()){
+        status = CheckFieldValueRange(it->fields.back(), *it->bitWidth);
+    }
+
     ComplexStatus complexStatus = {status, fieldName};
     return complexStatus;
 }
@@ -58,8 +66,14 @@ ComplexStatus Formater::AddEnumField(EnumType eTp, string enumName, string field
     case EnumType::Tp: status = ContentCheck(typeList, it, enumName, fieldName); break;
     case EnumType::Cd: status = ContentCheck(codeList, it, enumName, fieldName); break;
     }
-    if(status == Ok)
-        it->second.push_back({fieldName, code});
+    if(status == Ok) {
+        it->fields.push_back({fieldName, code});
+    }
+
+    if(it->bitWidth.has_value()){
+        status = CheckFieldValueRange(it->fields.back(), *it->bitWidth);
+    }
+
     ComplexStatus complexStatus = {status, fieldName};
     return complexStatus;
 }
@@ -148,7 +162,7 @@ Status Formater::AddStructToList(vector<Struct> &list, string structName)
     if(GetListDataStruct(list, structName) == list.end())
     {
         Struct _Struct;
-        _Struct.first = structName;
+        _Struct.name = structName;
         list.push_back(_Struct);
         return Ok;
     }
@@ -163,7 +177,7 @@ Status Formater::AddFieldToStruct(vector<Struct> &list, string structName,
     if(status == Ok)
     {
         FieldData data(dataStruct);
-        it->second.push_back({dataStruct.varName, data});
+        it->fields.push_back({dataStruct.varName, data});
     }
     return status;
 }

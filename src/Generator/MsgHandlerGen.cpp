@@ -42,7 +42,7 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
          << "uint8_t *op_status;"
          << "uint8_t status_Buf = 1;"
          << "op_status = &status_Buf;"
-         << _header.AsVarDecl() + ";";
+         << fmt("%s = {%s};", {_header.AsVarDecl(), _options.isCpp ? "" : "0"});
 
     body << fmt("size_t offset = %{%s->}%s;",
     {_options.isCpp ? "base" : "", _header.DesCall("l_p", "0", "&header", "op_status")});
