@@ -141,14 +141,7 @@ vector<string> ComplexTypeDescription::Declaration()
 vector<string> ComplexTypeDescription::SerDesDefinition(FunType funType, bool hasStatic)
 {
     Strings body;
-    body << "size_t size = offset;";
-
-    if(funType == Des)
-    {
-        IfElseStatementCpp statement;
-        statement.AddCase("*op_status == 0", "return size;");
-        body << statement.GetDefinition();
-    }
+    body << "size_t pos = offset;";
 
     for(auto var = _fields.begin(); var !=_fields.end(); var++)
     {
@@ -172,7 +165,9 @@ vector<string> ComplexTypeDescription::SerDesDefinition(FunType funType, bool ha
             }
         }
     }
-    body << "return size - offset;";
+
+    if(funType == Des) { body << "*op_status = 1;"; }
+    body << "return pos - offset;";
 
     Function funConstruct;
     SetSerDesDeclaration(funConstruct, funType);
@@ -349,19 +344,19 @@ Strings ComplexTypeDescription::SerArrayField(const StructField& field)
             body << fmt("%s %s_value = 0;", {varType, fieldName});
 
             loopBody << fmt("%s_value = str->%s[i].value;", {fieldName, fieldName});
-            string copyFmt = "size += bitcpy(p, size, &%s_value, 0, %s);";
+            string copyFmt = "pos += bitcpy(p, pos, &%s_value, 0, %s);";
             loopBody << fmt(copyFmt, {fieldName, elementSize});
         } else if(IsArrayAlignedField(field)) {
-            string copyFmt = "size += bitcpy(p, size, &str->%s[0], 0, %s * %s);";
+            string copyFmt = "pos += bitcpy(p, pos, &str->%s[0], 0, %s * %s);";
             body << fmt(copyFmt, {fieldName, elementSize, fieldSize});
         } else {
-            string copyFmt = "size += bitcpy(p, size, &str->%s[i], 0, %s);";
+            string copyFmt = "pos += bitcpy(p, pos, &str->%s[i], 0, %s);";
             loopBody << fmt(copyFmt, {fieldName, elementSize});
         }
     } else if(metaType == fieldType::Struct)
     {
         type = fmt("%s%s_%s",{_pSer, FieldTypePrefix(metaType), type});
-        loopBody << fmt("size += %s(p, size, &str->%s[i]);", {type, fieldName});
+        loopBody << fmt("pos += %s(p, pos, &str->%s[i]);", {type, fieldName});
     }
 
     if(!loopBody.empty())
@@ -398,21 +393,21 @@ Strings ComplexTypeDescription::DesArrayField(const StructField &field)
             string varType = StdTypeHandler::SlpdToAlignedCppType(type);
             body << fmt("%s %s_value = 0;", {varType, fieldName});
 
-            string copyFmt = "size += bitcpy(&%s_value, 0, p, size, %s);";
+            string copyFmt = "pos += bitcpy(&%s_value, 0, p, pos, %s);";
             loopBody << fmt(copyFmt, {fieldName, elementSize});
             loopBody << fmt("str->%s[i].value = %s_value;", {fieldName, fieldName});
         } else if(IsArrayAlignedField(field)) {
-            string copyFmt = "size += bitcpy(&str->%s[0], 0, p, size, %s * %s);";
+            string copyFmt = "pos += bitcpy(&str->%s[0], 0, p, pos, %s * %s);";
             body << fmt(copyFmt, {fieldName, elementSize, fieldSize});
         } else {
-            string copyFmt = "size += bitcpy(&str->%s[i], 0, p, size, %s);";
+            string copyFmt = "pos += bitcpy(&str->%s[i], 0, p, pos, %s);";
             loopBody << fmt(copyFmt, {fieldName, elementSize});
         }
     }
     else if(metaType == fieldType::Struct)
     {
         type = fmt("%s%s_%s",{_pDes, FieldTypePrefix(metaType), type});
-        loopBody << fmt("size += %s(p, size, &str->%s[i], op_status);",
+        loopBody << fmt("pos += %s(p, pos, &str->%s[i], op_status);",
                         {type, fieldName});
     }
 
@@ -470,12 +465,12 @@ Strings ComplexTypeDescription::SerSimpleField(const StructField &field)
     {
         if(isBF){body << fmt("%s %s = str->%s;", {type, fieldName, fieldName});}
         string var = sc(isBF, {"%s", "str->%s"}, fieldName);
-        string copyFmt = "size += bitcpy(p, size, &%s, 0, %s);";
+        string copyFmt = "pos += bitcpy(p, pos, &%s, 0, %s);";
         body << fmt(copyFmt, {var, fieldSize});
     } else if(metaType == fieldType::Struct) {
         String type = field.type.first;
         type = fmt("%s%s_%s",{_pSer, FieldTypePrefix(metaType), type});
-        body << fmt("size += %s(p, size, &str->%s);", {type, fieldName});
+        body << fmt("pos += %s(p, pos, &str->%s);", {type, fieldName});
     }
     return body;
 }
@@ -494,16 +489,16 @@ Strings ComplexTypeDescription::DesSimpleField(const StructField &field)
         if(IsSimpleBitField(field))
         {
             body << fmt("%s %s = 0;", {type, fieldName});
-            string copyFmt = "size += bitcpy(&%s, 0, p, size, %s);";
+            string copyFmt = "pos += bitcpy(&%s, 0, p, pos, %s);";
             body << fmt(copyFmt, {fieldName, fieldSize});
             body << fmt("str->%s = %s;", {fieldName, fieldName});
         } else {
-            string copyFmt = "size += bitcpy(&str->%s, 0, p, size, %s);";
+            string copyFmt = "pos += bitcpy(&str->%s, 0, p, pos, %s);";
             body << fmt(copyFmt, {fieldName, fieldSize});
         }
     } else if(metaType == fieldType::Struct) {
         type = fmt("%s%s_%s",{_pDes, typePrefix, type});
-        body << fmt("size += %s(p, size, &str->%s, op_status);", {type, fieldName});
+        body << fmt("pos += %s(p, pos, &str->%s, op_status);", {type, fieldName});
     }
 
     return body;
@@ -515,7 +510,7 @@ Strings ComplexTypeDescription::DesCheckInitValue(const StructField &field)
 
     String value = to_string(field.data.value);
     auto condition = fmt("str->%s != %s", {field.fieldName, value});
-    statement.AddCase(condition, "*op_status = 0; return size;");
+    statement.AddCase(condition, "*op_status = 0; return pos - offset;");
 
     return statement.GetDefinition();
 }
@@ -527,11 +522,11 @@ Strings ComplexTypeDescription::DesCheckValueRange(const StructField &field)
     auto st2 = fmt("str->%s > %s", {field.fieldName, to_string(field.data.max)});
 
     if(field.data.min == 0) {
-        statement.AddCase(st2, "*op_status = 0; return size;");
+        statement.AddCase(st2, "*op_status = 0; return pos - offset;");
     }
     else {
         String condition = fmt("%s || %s", {st1, st2});
-        statement.AddCase(condition, "*op_status = 0; return size;");
+        statement.AddCase(condition, "*op_status = 0; return pos - offset;");
     }
 
     return statement.GetDefinition();

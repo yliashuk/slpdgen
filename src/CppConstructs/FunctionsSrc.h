@@ -11,43 +11,52 @@ static uint32_t bit_mask(uint8_t numOfBits, uint8_t startPos)
 )";
 
 const std::string MinFun = R"(
-static uint8_t min(uint8_t a, uint8_t b){return a < b ? a : b;}
+static uint32_t min(uint32_t a, uint32_t b, uint32_t c)
+{
+    return a < b ? (a < c ? a : c) : (b < c ? b : c);
+}
 )";
 
 const std::string BitCpyFun = R"(
-static size_t bitcpy(void* dst, size_t dst_off, const void * src, size_t src_off, size_t n)
+static size_t bitcpy(void* dst, size_t dst_off, const void* src, size_t src_off, size_t n)
 {
-    if(dst_off % 8 == 0 && src_off % 8 == 0)
+    if(dst_off % 8 == 0 && src_off % 8 == 0 && n % 8 == 0)
     {
-        size_t num_bytes = (n + 7) / 8;
-        memcpy((char*)dst + dst_off / 8, (char*)src + src_off / 8, num_bytes);
-        return dst_off + n;
+        memcpy((char*)dst + dst_off / 8, (char*)src + src_off / 8, n / 8);
+        return n;
     }
 
     for(size_t bit = 0, num_bits = 0; bit < n; bit += num_bits)
     {
-        uint32_t src_byte_pos = src_off / 8;
-        uint8_t src_bit_pos = src_off % 8;
+        size_t s_off = src_off / 8;
+        size_t s_bit_off = src_off % 8;
+        uint8_t s_rest = 8 - s_bit_off;
 
-        uint32_t dst_byte_pos = dst_off / 8;
-        uint8_t dst_bit_pos = dst_off % 8;
+        size_t d_off = dst_off / 8;
+        size_t d_bit_off = dst_off % 8;
+        uint8_t d_rest = 8 - d_bit_off;
 
-        num_bits = min(16 - dst_bit_pos, n - bit);
+        void* s_pos = (uint8_t*)src + s_off;
+        void* d_pos = (uint8_t*)dst + d_off;
 
-        uint32_t* src_p = (uint32_t*)((uint8_t*)src + src_byte_pos);
-        uint16_t* dst_p = (uint16_t*)((uint8_t*)dst + dst_byte_pos);
+        uint8_t s_tr = (n - bit) > s_rest;
+        uint8_t d_tr = (n - bit) > d_rest;
+        num_bits = min(s_rest + 8 * s_tr, d_rest + 8 * d_tr, n - bit);
 
-        *dst_p &= ~bit_mask(num_bits, dst_bit_pos);
-
-        uint32_t val = *src_p >> src_bit_pos;
-
-        *dst_p |= (val & bit_mask(num_bits, 0)) << dst_bit_pos;
+        uint16_t val = (s_tr ? *(uint16_t*)s_pos : *(uint8_t*)s_pos) >> s_bit_off;
+        if(d_tr)
+        {
+            *(uint16_t*)d_pos &= ~bit_mask(num_bits, d_bit_off);
+            *(uint16_t*)d_pos |= (val & bit_mask(num_bits, 0)) << d_bit_off;
+        } else{
+            *(uint8_t*)d_pos &= ~bit_mask(num_bits, d_bit_off);
+            *(uint8_t*)d_pos |= (val & bit_mask(num_bits, 0)) << d_bit_off;
+        }
 
         src_off += num_bits;
         dst_off += num_bits;
     }
-
-    return dst_off;
+    return n;
 }
 )";
 

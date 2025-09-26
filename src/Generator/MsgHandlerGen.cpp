@@ -39,16 +39,14 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
 
     body << stat.GetDefinition()
          << "char* l_p = (char*)p;"
-         << "uint8_t *op_status;"
-         << "uint8_t status_Buf = 1;"
-         << "op_status = &status_Buf;"
+         << "uint8_t op_status;"
          << fmt("%s = {%s};", {_header.AsVarDecl(), _options.isCpp ? "" : "0"});
 
     body << fmt("size_t offset = %{%s->}%s;",
-    {_options.isCpp ? "base" : "", _header.DesCall("l_p", "0", "&header", "op_status")});
+    {_options.isCpp ? "base" : "", _header.DesCall("l_p", "0", "&header", "&op_status")});
 
     IfElseStatementCpp handler;
-    handler.AddCase("*op_status == 0", fmt("return(%s)1;", {returnType}));
+    handler.AddCase("op_status == 0", fmt("return(%s)1;", {returnType}));
 
     body << handler.GetDefinition();
 
@@ -107,10 +105,10 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
             }
 
             string prefix = _options.isCpp ? "base->" : "";
-            buffer << prefix + rdm->packet->DesCall("l_p", "offset", "&str", "op_status") + ";";
+            buffer << prefix + rdm->packet->DesCall("l_p", "offset", "&str", "&op_status") + ";";
 
             IfElseStatementCpp handler;
-            handler.AddCase("*op_status == 0", "return(" + returnType + ")1;");
+            handler.AddCase("op_status == 0", "return(" + returnType + ")1;");
             buffer << handler.GetDefinition();
 
             buffer << receiveMsgCbCall;

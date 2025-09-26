@@ -269,6 +269,7 @@ void CodeGenerator::GenerateHeaderQt()
     oStream << fmt("namespace %sSpace{\n", {_fName});
 
     oStream << _stdTypeHandler.BitFieldTypes();
+    oStream << endl;
 
     oStream << EnumErrorCode().Declaration(false) << endl;
 
