@@ -212,6 +212,7 @@ void CodeGenerator::GenerateHeader()
     oStream << fmt("#define %s_H", {toUpper(_fName)}) << endl;
     oStream << endl;
     oStream << "#include <stdint.h>" << endl;
+    oStream << "#include <stdbool.h>" << endl;
 
     oStream << _stdTypeHandler.BitFieldTypes() << endl;
 
@@ -269,6 +270,7 @@ void CodeGenerator::GenerateHeaderQt()
     oStream << fmt("namespace %sSpace{\n", {_fName});
 
     oStream << _stdTypeHandler.BitFieldTypes();
+    oStream << endl;
 
     oStream << EnumErrorCode().Declaration(false) << endl;
 
