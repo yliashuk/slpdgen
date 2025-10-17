@@ -38,7 +38,7 @@ public:
     void SetBlockType(ComplexType type);
     void SetPrefix(string prefix);
 
-    void SetName(string name);
+    void SetName(string _name);
     string GetName() const;
 
     string GetCodeName() const;
@@ -47,11 +47,11 @@ public:
 
     void AddContextOffset(SizeExprPtr offset);
 
-    void addField(FieldDataStruct data,
+    void addField(StructFieldInfo data,
                   pair<string, fieldType> type,
                   SizeExprPtr fieldSize);
 
-    vector<StructField> GetFields() const;
+    vector<ComplexField> GetFields() const;
 
     vector<string> Declaration();
 
@@ -70,8 +70,8 @@ public:
     void SetAlignedCopyPreferred(bool state);
 
 private:
-    string name;
-    vector<StructField> _fields;
+    string _name;
+    vector<ComplexField> _fields;
     ComplexType _blockType;
 
     AppOptions _options{};
@@ -91,22 +91,22 @@ private:
 
     void SetSerDesDeclaration(Function& function, FunType type);
 
-    Strings SerArrayField(const StructField &field);
-    Strings DesArrayField(const StructField &field);
-    Strings ArrayFieldAllocation(const StructField &field);
+    Strings SerArrayField(const ComplexField &field);
+    Strings DesArrayField(const ComplexField &field);
+    Strings ArrayFieldAllocation(const ComplexField &field);
 
-    Strings SerSimpleField(const StructField &field);
-    Strings DesSimpleField(const StructField &field);
+    Strings SerSimpleField(const ComplexField &field);
+    Strings DesSimpleField(const ComplexField &field);
 
-    Strings DesCheckInitValue(const StructField &field);
-    Strings DesCheckValueRange(const StructField &field);
+    Strings DesCheckInitValue(const ComplexField &field);
+    Strings DesCheckValueRange(const ComplexField &field);
 
-    String UsedCopyMethod(const StructField &field);
-    bool ShouldUseAlignedCopy(const StructField &field) const;
+    String UsedCopyMethod(const ComplexField &field);
+    bool ShouldUseAlignedCopy(const ComplexField &field) const;
 
-    static bool IsSimpleBitField(const StructField &field);
-    static bool IsArrayBitField(const StructField &field);
-    static bool IsArrayAlignedField(const StructField &field);
+    static bool IsSimpleBitField(const ComplexField &field);
+    static bool IsArrayBitField(const ComplexField &field);
+    static bool IsArrayAlignedField(const ComplexField &field);
 
 
 };

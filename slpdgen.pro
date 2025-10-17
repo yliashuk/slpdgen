@@ -1,8 +1,4 @@
-TEMPLATE = app
-CONFIG += console c++17
-CONFIG -= app_bundle
-CONFIG -= qt
-#include(src/Analyzer/Analyzer.pri)
+QMAKE_CXXFLAGS = -std=c++17 -Wall -Wshadow -Wpointer-arith -pedantic
 
 # Generate Parser
 
@@ -66,7 +62,6 @@ HEADERS += \
     src/CppConstructs/SwitchCpp.h \
     src/Generator/ComplexTypeDescription.h \
     src/Generator/EnumDescription.h \
-    src/Generator/Generics.h \
     src/Generator/SizeExpr.h \
     src/AppOptions.h \
     src/VersionInfo.h

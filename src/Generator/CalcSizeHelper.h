@@ -28,15 +28,15 @@ enum class fieldType
     Struct
 };
 
-struct StructField
+struct ComplexField
 {
-    pair<string,fieldType> type;
     string name;
+    pair<string, fieldType> type;
     SizeExprPtr bitSize = 0_lit;
     SizeExprPtr arrayElementSize = 0_lit;  // for array fields
     SizeExprPtr arrayElementCount = 0_lit; // for array fields
 
-    FieldData data;
+    FieldInfo info;
 };
 
 class CalcSizeHelper
@@ -44,29 +44,29 @@ class CalcSizeHelper
 public:
     CalcSizeHelper() = delete;
 
-    static Strings CalcSizeLoop(string typePrefix, StructField field,
+    static Strings CalcSizeLoop(string typePrefix, ComplexField field,
                                 FunType type);
 
     static Strings CalcStructSize(string typePrefix,
-                                  StructField field, FunType type,
+                                  ComplexField field, FunType type,
                                   bool isInLoop = false);
 
     static string CalcSizeFunName(string name, FunType type);
 
     // Calculate serialization size for simple fieldTypes: Enum, Code, Type, std
-    static string CalcSimpeTypeSize(StructField field, FunType type);
+    static string CalcSimpeTypeSize(ComplexField field, FunType type);
 
     static string CalcDesSimpleArrTypeSize(string typePrefix,
-                                           StructField field);
+                                           ComplexField field);
 
     static Function CalcSizeFunDecl(string name, FunType type, bool hasStatic);
 
     static Strings CSizeDef();
 
 private:
-    static ForLoopCpp CalcSizeLoopDecl(StructField field, FunType type);
-    static vector<string> AccumulateSize(StructField field);
-    static string FieldSize(StructField field, FunType type);
+    static ForLoopCpp CalcSizeLoopDecl(ComplexField field, FunType type);
+    static vector<string> AccumulateSize(ComplexField field);
+    static string FieldSize(ComplexField field, FunType type);
 };
 
 #endif // DESCRIPTIONHELPER_H

@@ -3,11 +3,12 @@
 
 #include <cmath>
 #include <vector>
+#include <optional>
 #include <algorithm>
 
 using namespace std;
 
-enum DataStructType
+enum StructType
 {
     SmplStr,
     Hdr,

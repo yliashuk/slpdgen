@@ -106,7 +106,7 @@ EnumDescription CodeGenerator::EnumErrorCode()
     decl.type = EnumerableType::Enum;
     decl.SetName("ErrorCode");
 
-    vector<FieldDataEnum> fields;
+    vector<EnumFieldInfo> fields;
     fields.push_back({"OK", 0});
     fields.push_back({"ERROR", 1});
     decl.fields = fields;
@@ -148,50 +148,50 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
     decl.SetName(IntermediateStruct.name);
     for(auto var: IntermediateStruct.fields)
     {
-        auto type = var.second.type;
-        if(auto stdType = _stdTypeHandler.CheckType(type, var.second.isArrayField))
+        auto fType = var.second.type;
+        if(auto stdType = _stdTypeHandler.CheckType(fType, var.second.IsArray()))
         {
             decl.addField(var, {stdType->first, fieldType::std}, stdType->second);
         } else
         {
-            auto it = FindInVector(_types, type);
+            auto it = FindInVector(_types, fType);
             if(it != _types.end())
             {
                 if(it->second == fieldType::Struct)
                 {
-                    auto p = FindByName(_structDeclarations, type);
+                    auto p = FindByName(_structDeclarations, fType);
                     SetupCopyOptions(var, *p, _header.Size() + decl.Size());
                     decl.addField(var, {p->GetName(), fieldType::Struct}, p->Size());
                 }
                 else if(it->second == fieldType::Enum)
                 {
-                    auto p = FindByName(_enumDeclarations, type);
+                    auto p = FindByName(_enumDeclarations, fType);
                     decl.addField(var, {p->GetName(), fieldType::Enum}, p->Size());
                 }
                 else if(it->second == fieldType::Code)
                 {
-                    auto p = FindByName(_enumDeclarations, type);
+                    auto p = FindByName(_enumDeclarations, fType);
                     decl.addField(var, {p->GetName(), fieldType::Code}, p->Size());
                 }
                 else if(it->second == fieldType::Type)
                 {
-                    auto p = FindByName(_enumDeclarations, type);
+                    auto p = FindByName(_enumDeclarations, fType);
                     decl.addField(var, {p->GetName(), fieldType::Type}, p->Size());
                 }
             }
             else {
                 throw invalid_argument(fmt("type not found: \"%s\" in \"%s\"", {
-                                               type, IntermediateStruct.name}));
+                                               fType, IntermediateStruct.name}));
             }
         }
     }
     return decl;
 }
 
-void CodeGenerator::SetupCopyOptions(const FieldDataStruct &info,
+void CodeGenerator::SetupCopyOptions(const StructFieldInfo &info,
                                      ComplexTypeDescription &type, SizeExprPtr offset)
 {
-    if(info.second.isArrayField && !type.Size()->IsMultipleOf(8)) {
+    if(info.second.IsArray() && !type.Size()->IsMultipleOf(8)) {
         type.SetAlignedCopyPreferred(false);
     } else {
         type.AddContextOffset(offset);

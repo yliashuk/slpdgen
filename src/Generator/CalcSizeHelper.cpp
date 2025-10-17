@@ -1,6 +1,6 @@
 #include "CalcSizeHelper.h"
 
-Strings CalcSizeHelper::CalcSizeLoop(string typePrefix, StructField field,
+Strings CalcSizeHelper::CalcSizeLoop(string typePrefix, ComplexField field,
                                  FunType type)
 {
     ForLoopCpp loop = CalcSizeLoopDecl(field, type);
@@ -9,7 +9,7 @@ Strings CalcSizeHelper::CalcSizeLoop(string typePrefix, StructField field,
 }
 
 Strings
-CalcSizeHelper::CalcStructSize(string typePrefix, StructField field,
+CalcSizeHelper::CalcStructSize(string typePrefix, ComplexField field,
                            FunType type, bool isInLoop)
 {
     Strings body;
@@ -50,11 +50,11 @@ string CalcSizeHelper::CalcSizeFunName(string name, FunType type)
 }
 
 string
-CalcSizeHelper::CalcSimpeTypeSize(StructField field, FunType type)
+CalcSizeHelper::CalcSimpeTypeSize(ComplexField field, FunType type)
 {
     string sumVar = type == Ser ? "size" : "c_size.r";
     string res = sumVar + " += " + FieldSize(field, type);
-    if(field.data.isArrayField)
+    if(field.info.IsArray())
     {
         res += " * " + field.arrayElementSize->ToString();
     }
@@ -62,7 +62,7 @@ CalcSizeHelper::CalcSimpeTypeSize(StructField field, FunType type)
 }
 
 string CalcSizeHelper::CalcDesSimpleArrTypeSize(string typePrefix,
-                                            StructField field)
+                                            ComplexField field)
 {
     string numOfElements = FieldSize(field, Des);
     string prefix = field.type.second == fieldType::std ? string{} : typePrefix;
@@ -107,7 +107,7 @@ Strings CalcSizeHelper::CSizeDef()
     return str.Declaration();
 }
 
-ForLoopCpp CalcSizeHelper::CalcSizeLoopDecl(StructField field, FunType type)
+ForLoopCpp CalcSizeHelper::CalcSizeLoopDecl(ComplexField field, FunType type)
 {
     string init =  "size_t i = 0";
     string condition = " i < " + FieldSize(field, type);
@@ -119,10 +119,10 @@ ForLoopCpp CalcSizeHelper::CalcSizeLoopDecl(StructField field, FunType type)
     return loop;
 }
 
-vector<string> CalcSizeHelper::AccumulateSize(StructField field)
+vector<string> CalcSizeHelper::AccumulateSize(ComplexField field)
 {
     vector<string> body;
-    if(field.data.hasDynamicSize)
+    if(field.info.HasDynamicSize())
     {
         body << "c_size.d += c_tmp_size.s;";
     }
@@ -132,15 +132,15 @@ vector<string> CalcSizeHelper::AccumulateSize(StructField field)
     return body;
 }
 
-string CalcSizeHelper::FieldSize(StructField field, FunType type)
+string CalcSizeHelper::FieldSize(ComplexField field, FunType type)
 {
-    bool isArray = field.data.isArrayField;
-    bool isDynamic = field.data.hasDynamicSize;
+    bool isArray = field.info.IsArray();
+    bool isDynamic = field.info.HasDynamicSize();
 
     auto bitSize = field.bitSize->ToString();
     auto elementCount = field.arrayElementCount->ToString();
     // write the fix size for static array field or var names for dynamic
-    auto size = isArray ? (isDynamic ? field.data.lenDefiningVar : elementCount) : bitSize;
+    auto size = isArray ? (isDynamic ? *field.info.sizeVar : elementCount) : bitSize;
 
     // generate like
     if(isDynamic && type == Ser) {

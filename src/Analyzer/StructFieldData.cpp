@@ -1,31 +1,31 @@
 #include "StructFieldData.h"
 
+bool FieldInfo::IsArray() const {return sizeVar || constantSize ;}
+
+bool FieldInfo::HasDynamicSize() const { return sizeVar.has_value(); }
+
 FieldInfoBuilder &FieldInfoBuilder::SetCommon(string type, string VarName)
 {
     this->_FieldInfo.type = type;
-    this->_FieldInfo.varName= VarName;
+    this->_FieldInfo.name= VarName;
     return *this;
 }
 
-FieldInfoBuilder &FieldInfoBuilder::SetLenDefiningVar(string str)
+FieldInfoBuilder &FieldInfoBuilder::SetArraySize(string str)
 {
-    this->_FieldInfo.lenDefiningVar = str;
-    this->_FieldInfo.isNumOfCeils = true;
-    this->_FieldInfo.withLenDefiningVar = true;
+    this->_FieldInfo.sizeVar = str;
     return *this;
 }
 
-FieldInfoBuilder &FieldInfoBuilder::SetLenDefiningVar(uint64_t num)
+FieldInfoBuilder &FieldInfoBuilder::SetArraySize(uint64_t num)
 {
-    this->_FieldInfo.constLenDefiningVar = num;
-    this->_FieldInfo.isNumOfCeils = true;
+    this->_FieldInfo.constantSize = num;
     return *this;
 }
 
-FieldInfoBuilder &FieldInfoBuilder::SetDefaultVal(uint64_t val)
+FieldInfoBuilder &FieldInfoBuilder::SetInitValue(uint64_t val)
 {
-    this->_FieldInfo.defaultVal = val;
-    this->_FieldInfo.defaultValue = true;
+    this->_FieldInfo.initValue = val;
     return *this;
 }
 
@@ -33,14 +33,12 @@ FieldInfoBuilder &FieldInfoBuilder::SetValRange(uint64_t fromVal, uint64_t toVal
 {
     this->_FieldInfo.fromVal = fromVal;
     this->_FieldInfo.toVal = toVal;
-    this->_FieldInfo.valueRange = true;
     return *this;
 }
 
 FieldInfoBuilder &FieldInfoBuilder::SetSpecialType(string type)
 {
     this->_FieldInfo.specialType = type;
-    this->_FieldInfo.isWithSpecialType = true;
     return *this;
 }
 

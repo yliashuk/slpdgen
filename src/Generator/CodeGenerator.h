@@ -46,7 +46,7 @@ private:
 
     ComplexTypeDescription GenStructDecl(Struct &IntermediateStruct, ComplexType type);
 
-    void SetupCopyOptions(const FieldDataStruct& info, ComplexTypeDescription &type,
+    void SetupCopyOptions(const StructFieldInfo &info, ComplexTypeDescription &type,
                           SizeExprPtr offset);
 
     string GetVersion();

@@ -45,10 +45,9 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
     body << fmt("size_t offset = %{%s->}%s;",
     {_options.isCpp ? "base" : "", _header.DesCall("l_p", "0", "&header", "&op_status")});
 
-    IfElseStatementCpp handler;
-    handler.AddCase("op_status == 0", fmt("return(%s)1;", {returnType}));
-
-    body << handler.GetDefinition();
+    IfElseStatementCpp errorHandler;
+    errorHandler.AddCase("op_status == 0", fmt("return(%s)1;", {returnType}));
+    body << errorHandler.GetDefinition();
 
     SwitchCpp switchOperator;
     switchOperator.SetSwitchingParameter("header." + CodeVarName());
@@ -231,7 +230,7 @@ std::vector<Parameter> MsgHandlerGen::GetHeaderParams(std::vector<string> initTy
 
     for(auto field : _header.GetFields())
     {
-        if(contains(initTypes, field.data.initType))
+        if(contains(initTypes, field.info.specialType.value_or("")))
         {
             params += {field.type.first, field.name};
         }
@@ -262,10 +261,10 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
     {
         for(auto field : msg.packet->GetFields())
         {
-            if(field.data.hasDynamicSize)
+            if(field.info.HasDynamicSize())
             {
                 body << fmt("str->%s = str->%s.size();",
-                {field.data.lenDefiningVar, field.name});
+                {*field.info.sizeVar, field.name});
             }
         }
     }

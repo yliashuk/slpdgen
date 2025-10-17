@@ -34,7 +34,7 @@ public:
 
     vector<string> Declaration(bool withEnumText = true);
 
-    vector<FieldDataEnum> fields;
+    vector<EnumFieldInfo> fields;
 
 private:
     string _name;

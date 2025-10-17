@@ -78,34 +78,34 @@ ComplexStatus Formater::AddEnumField(EnumType eTp, string enumName, string field
     return complexStatus;
 }
 
-ComplexStatus Formater::AddStructDeclaration(DataStructType strTp, string structName)
+ComplexStatus Formater::AddStructDeclaration(StructType strTp, string structName)
 {
     Status status {};
     switch (strTp) {
-    case DataStructType::SmplStr: status = AddStructToList(structList,structName);break;
-    case DataStructType::Pckt: status = AddStructToList(packetList,structName);break;
-    case DataStructType::Hdr: status = AddStructToList(headerList,structName);break;
+    case StructType::SmplStr: status = AddStructToList(structList,structName);break;
+    case StructType::Pckt: status = AddStructToList(packetList,structName);break;
+    case StructType::Hdr: status = AddStructToList(headerList,structName);break;
     }
     ComplexStatus complexStatus = {status,structName};
     return complexStatus;
 }
 
-ComplexStatus Formater::AddStructField(DataStructType strTp, string currBlockName,
-                                       FieldInfo dataStruct)
+ComplexStatus Formater::AddStructField(StructType strTp, string currBlockName,
+                                       FieldInfo fieldInfo)
 {
     Status status {};
     switch (strTp) {
-    case DataStructType::SmplStr: status = AddFieldToStruct(structList, currBlockName,
-                                                            dataStruct);
+    case StructType::SmplStr: status = AddFieldToStruct(structList, currBlockName,
+                                                            fieldInfo);
         break;
-    case DataStructType::Pckt: status = AddFieldToStruct(packetList, currBlockName,
-                                                         dataStruct);
+    case StructType::Pckt: status = AddFieldToStruct(packetList, currBlockName,
+                                                         fieldInfo);
         break;
-    case DataStructType::Hdr: status = AddFieldToStruct(headerList, currBlockName,
-                                                        dataStruct);
+    case StructType::Hdr: status = AddFieldToStruct(headerList, currBlockName,
+                                                        fieldInfo);
         break;
     }
-    ComplexStatus complexStatus = {status, dataStruct.varName};
+    ComplexStatus complexStatus = {status, fieldInfo.name};
     return complexStatus;
 }
 
@@ -173,11 +173,10 @@ Status Formater::AddFieldToStruct(vector<Struct> &list, string structName,
                                   FieldInfo dataStruct)
 {
     vector<Struct>::iterator it;
-    auto status = ContentCheck(list,it,structName, dataStruct.varName);
+    auto status = ContentCheck(list,it,structName, dataStruct.name);
     if(status == Ok)
     {
-        FieldData data(dataStruct);
-        it->fields.push_back({dataStruct.varName, data});
+        it->fields.push_back({dataStruct.name, dataStruct});
     }
     return status;
 }

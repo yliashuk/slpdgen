@@ -8,7 +8,7 @@
 
 Formater formater;
 string currBlockName;
-DataStructType strT;
+StructType strT;
 EnumType enmType;
 
 bool errorState = false;
@@ -197,16 +197,16 @@ data_struct_field_parse:
                 unique_ptr<FieldInfo> dataStruct;
                 auto builder = FieldInfoBuilder().SetCommon($1, $2);
                 if(var)
-                    dataStruct = builder.SetLenDefiningVar(var).Build();
+                    dataStruct = builder.SetArraySize(var).Build();
                 else
-                    dataStruct = builder.SetLenDefiningVar($4).Build();
+                    dataStruct = builder.SetArraySize($4).Build();
                 auto status = formater.AddStructField(strT, currBlockName, *dataStruct);
                 errorPrint(status);
             }
           | WORD WORD EQUAL WORD
             {
                 auto dataStruct = FieldInfoBuilder().SetCommon($1, $2)
-                                                    .SetDefaultVal(GetNum($4))
+                                                    .SetInitValue(GetNum($4))
                                                     .Build();
                 auto status = formater.AddStructField(strT, currBlockName, *dataStruct);
                 errorPrint(status);
