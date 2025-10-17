@@ -7,12 +7,12 @@ using namespace Utils;
 
 StdTypeHandler::StdTypeHandler(AppOptions options) : _options(options){}
 
-optional<pair<string, size_t> > StdTypeHandler::CheckType(string slpdType, bool isArray)
+optional<pair<string, SizeExprPtr> > StdTypeHandler::CheckType(string slpdType, bool isArray)
 {
-    if(slpdType == "char") return {{"char", 8}};
-    if(slpdType == "bool") return {{"bool", 1}};
-    if(slpdType == "f32")  return {{"float", 32}};
-    if(slpdType == "f64")  return {{"double", 64}};
+    if(slpdType == "char") return {{"char", 8_lit}};
+    if(slpdType == "bool") return {{"bool", 1_lit}};
+    if(slpdType == "f32")  return {{"float", 32_lit}};
+    if(slpdType == "f64")  return {{"double", 64_lit}};
 
     string kind = {slpdType[0]};
     if(contains(Strings{"s", "i", "u"}, kind))
@@ -26,9 +26,9 @@ optional<pair<string, size_t> > StdTypeHandler::CheckType(string slpdType, bool 
             BitType bitType = {type, IntType(prefixT, RoundUp(size)), size};
             if(!contains(_bitFieldTypes, bitType)){ _bitFieldTypes += bitType; }
 
-            return {{type, size}};
+            return {{type, Literal::Create(size)}};
         } else {
-            return {{IntType(prefixT, RoundUp(size)), size}};
+            return {{IntType(prefixT, RoundUp(size)), Literal::Create(size)}};
         }
     }
     return {};

@@ -76,7 +76,7 @@ Function MsgHandlerGen::ParseFun(const vector<RulesDefinedMessage>& rdms)
         }
 
         string cbPrefix = !_options.isCpp ? "obj->_CBsStruct." : "";
-        string receiveMsgCbPtr = cbPrefix + ReceiveMsgCb(*rdm).FunctionName();
+        string receiveMsgCbPtr = cbPrefix + ReceiveMsgCb(*rdm).Name();
 
         vector<string> cbArgNames = ReceiveMsgCbArgNames(*rdm);
         string receiveMsgCbCall = cbPrefix + ReceiveMsgCb(*rdm).GetCall(cbArgNames,true);
@@ -167,7 +167,7 @@ string MsgHandlerGen::CodeVarName()
     for(auto field : _header.GetFields())
     {
         if(field.type.second == fieldType::Code) {
-            return field.fieldName;
+            return field.name;
         }
     }
     return {};
@@ -178,7 +178,7 @@ string MsgHandlerGen::TypeVarName()
     for(auto field : _header.GetFields())
     {
         if(field.type.second == fieldType::Type) {
-            return field.fieldName;
+            return field.name;
         }
     }
     return {};
@@ -233,7 +233,7 @@ std::vector<Parameter> MsgHandlerGen::GetHeaderParams(std::vector<string> initTy
     {
         if(contains(initTypes, field.data.initType))
         {
-            params += {field.type.first, field.fieldName};
+            params += {field.type.first, field.name};
         }
     }
     return params;
@@ -265,7 +265,7 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
             if(field.data.hasDynamicSize)
             {
                 body << fmt("str->%s = str->%s.size();",
-                {field.data.lenDefiningVar, field.fieldName});
+                {field.data.lenDefiningVar, field.name});
             }
         }
     }
@@ -281,8 +281,8 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
     {
         for(auto var: _header.GetFields())
         {
-            if(var.fieldName == param.name) {
-                body += fmt("header.%s = %s;", {var.fieldName, param.name});
+            if(var.name == param.name) {
+                body += fmt("header.%s = %s;", {var.name, param.name});
             }
         }
     }
@@ -296,10 +296,10 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
     {
         for(auto field: _header.GetFields())
         {
-            if(field.fieldName == param.name)
+            if(field.name == param.name)
             {
                 string strParam = fmt("%s->%s", {_options.isCpp ? "base" : "obj", param.name});
-                body += fmt("header.%s = %s;", {field.fieldName, strParam});
+                body += fmt("header.%s = %s;", {field.name, strParam});
             }
         }
     }
@@ -310,20 +310,20 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
     if(_options.isCpp)
     {
         body << fmt("std::unique_ptr<char[]> alloc(new char[(%s%{ + %s} + 7) / 8]);",
-        {_header.Size().Get(), msg.packet ? "header.dataLen" : ""});
+        {_header.Size()->Expand()->ToString(), msg.packet ? "header.dataLen" : ""});
 
         body << "char *buffer = alloc.get();";
     }
     else
     {
         body << fmt("char buffer[(%s%{ + %s}) / 8 + 1];",
-        {_header.Size().Get(), msg.packet ? "header.dataLen" : ""});
+        {_header.Size()->Expand()->ToString(), msg.packet ? "header.dataLen" : ""});
     }
 
     body << (_options.isCpp ? "base->" : "") + _header.SerCall("buffer", "0", "&header") + ";";
     if(msg.packet) {
         body << (_options.isCpp ? "base->" : "") +
-                msg.packet->SerCall("buffer", _header.Size().Get(), "str") + ";";
+                msg.packet->SerCall("buffer", _header.Size()->Expand()->ToString(), "str") + ";";
     }
 
     vector<string> params;
@@ -332,12 +332,12 @@ Function MsgHandlerGen::SendMsgFun(const RulesDefinedMessage& msg)
 
     params += "buffer";
     params += fmt("(%s%{ + %s} + 7) / 8",
-    {_header.Size().Get(), msg.packet ? "header.dataLen" : ""});
+    {_header.Size()->Expand()->ToString(), msg.packet ? "header.dataLen" : ""});
 
     if(!_options.isCpp)
     {
         body << IfElseStatementCpp().AddCase(
-                    fmt("obj->_CBsStruct.%s != 0",{SendCb().FunctionName()}),
+                    fmt("obj->_CBsStruct.%s != 0",{SendCb().Name()}),
                     fmt("obj->_CBsStruct.%s",{SendCb().GetCall(params, false)})
                     ).GetDefinition();
     } else {

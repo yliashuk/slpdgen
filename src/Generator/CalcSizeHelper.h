@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include "Analyzer/Formater.h"
-#include "Polynomial.h"
+#include "SizeExpr.h"
 #include "CppConstructs/ForLoopCpp.h"
 #include "CppConstructs/FunctionCpp.h"
 #include "CppConstructs/StructCpp.h"
@@ -31,10 +31,11 @@ enum class fieldType
 struct StructField
 {
     pair<string,fieldType> type;
-    string fieldName;
-    Polynomial fieldSize;
-    Polynomial fieldOffset;
-    Polynomial arrayTypeSize; // for array fields
+    string name;
+    SizeExprPtr bitSize = 0_lit;
+    SizeExprPtr arrayElementSize = 0_lit;  // for array fields
+    SizeExprPtr arrayElementCount = 0_lit; // for array fields
+
     FieldData data;
 };
 

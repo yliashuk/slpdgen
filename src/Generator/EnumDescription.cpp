@@ -5,16 +5,16 @@ using namespace Utils;
 
 EnumDescription::EnumDescription(){}
 
-size_t EnumDescription::Size() const
+SizeExprPtr EnumDescription::Size() const
 {
-    if(_bitWidth) return {_bitWidth};
+    if(_bitWidth) return {Literal::Create(_bitWidth)};
 
     auto max = std::max_element(fields.begin(), fields.end(), [](auto a, auto b) {
         return a.second < b.second;
     })->second;
 
-    if(max > 255) { return 16; }
-    else          { return 8; }
+    if(max > 255) { return 16_lit; }
+    else          { return 8_lit; }
 }
 
 vector<string> EnumDescription::Declaration(bool withEnumText)

@@ -17,6 +17,14 @@ static uint32_t min(uint32_t a, uint32_t b, uint32_t c)
 }
 )";
 
+const std::string BitCpyAlignedFun = R"(
+static size_t bitcpya(void* dst, size_t dst_off, const void* src, size_t src_off, size_t n)
+{
+    memcpy((char*)dst + dst_off / 8, (char*)src + src_off / 8, n / 8);
+    return n;
+}
+)";
+
 const std::string BitCpyFun = R"(
 static size_t bitcpy(void* dst, size_t dst_off, const void* src, size_t src_off, size_t n)
 {

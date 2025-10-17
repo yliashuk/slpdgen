@@ -69,8 +69,8 @@ void CodeGenerator::AnalizeRules()
 
     auto Rdm = [=](auto command, auto type, auto msg) {
         auto name = msg.value_or("");
-        auto typeDescription = FindByName(_structDeclarations, name);
-        return RulesDefinedMessage{command, type, typeDescription};
+        auto declaration = FindByNameOpt(_structDeclarations, name);
+        return RulesDefinedMessage{command, type, declaration};
     };
 
     for(auto rule : rules)
@@ -117,19 +117,6 @@ EnumDescription CodeGenerator::EnumErrorCode()
     return decl;
 }
 
-Parameter CodeGenerator::GetAddrParameter()
-{
-    Parameter parameter;
-
-    if(!_options.isCpp)
-         parameter.type = toLower(_fName) + "_Addr*";
-    else
-        parameter.type = "Addr*";
-
-    parameter.name = "addr";
-    return parameter;
-}
-
 StructCpp CodeGenerator::GenAddrDecl()
 {
     StructCpp decl;
@@ -153,6 +140,10 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
         decl.SetPrefix(toLower(_fName));
     }
 
+    if(type == ComplexType::Message) {
+        decl.AddContextOffset(_header.Size());
+    }
+
     decl.SetBlockType(type);
     decl.SetName(IntermediateStruct.name);
     for(auto var: IntermediateStruct.fields)
@@ -169,6 +160,7 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
                 if(it->second == fieldType::Struct)
                 {
                     auto p = FindByName(_structDeclarations, type);
+                    SetupCopyOptions(var, *p, _header.Size() + decl.Size());
                     decl.addField(var, {p->GetName(), fieldType::Struct}, p->Size());
                 }
                 else if(it->second == fieldType::Enum)
@@ -194,6 +186,16 @@ ComplexTypeDescription CodeGenerator::GenStructDecl(Struct& IntermediateStruct, 
         }
     }
     return decl;
+}
+
+void CodeGenerator::SetupCopyOptions(const FieldDataStruct &info,
+                                     ComplexTypeDescription &type, SizeExprPtr offset)
+{
+    if(info.second.isArrayField && !type.Size()->IsMultipleOf(8)) {
+        type.SetAlignedCopyPreferred(false);
+    } else {
+        type.AddContextOffset(offset);
+    }
 }
 
 string CodeGenerator::GetVersion()
@@ -304,7 +306,7 @@ void CodeGenerator::GenerateHeaderQt()
     oStream << "signals:" << endl;
 
     for(auto rdm :_rdms) {
-        _handlerGen->ReceiveMsgCb(rdm).SetExternDeclaration(false);
+        _handlerGen->ReceiveMsgCb(rdm).SetExtern(false);
         oStream << "\t" + _handlerGen->ReceiveMsgCb(rdm).Declaration() << endl;
     }
 
@@ -352,6 +354,7 @@ void CodeGenerator::GenerateSource()
     oStream << BitMaskFun;
     oStream << MinFun;
     oStream << BitCpyFun;
+    oStream << BitCpyAlignedFun;
 
     oStream << endl;
     oStream << CalcSizeHelper::CSizeDef();
@@ -396,6 +399,7 @@ void CodeGenerator::GenerateSourceQt()
     oStream << BitMaskFun;
     oStream << MinFun;
     oStream << BitCpyFun;
+    oStream << BitCpyAlignedFun;
     oStream << endl;
     oStream << CalcSizeHelper::CSizeDef();
     oStream << endl;
@@ -505,11 +509,11 @@ Function CodeGenerator::SetCbsFun()
 
     vector<string> body;
     for(auto rdm :_rdms) {
-        auto cbName = _handlerGen->ReceiveMsgCb(rdm).FunctionName();
+        auto cbName = _handlerGen->ReceiveMsgCb(rdm).Name();
         body << fmt("obj->_CBsStruct.%s = str->%s;", {cbName, cbName});
     }
 
-    auto sendCbName = _handlerGen->SendCb().FunctionName();
+    auto sendCbName = _handlerGen->SendCb().Name();
     body << fmt("obj->_CBsStruct.%s = str->%s;", {sendCbName, sendCbName});
 
     setCbsFun.SetBody(body);
@@ -525,9 +529,9 @@ Function CodeGenerator::ResetCbsFun()
 
     vector<string> body;
     for(auto rdm :_rdms) {
-        body << "obj->_CBsStruct." + _handlerGen->ReceiveMsgCb(rdm).FunctionName() + " = 0;";
+        body << "obj->_CBsStruct." + _handlerGen->ReceiveMsgCb(rdm).Name() + " = 0;";
     }
-    body << "obj->_CBsStruct." + _handlerGen->SendCb().FunctionName() + " = 0;";
+    body << "obj->_CBsStruct." + _handlerGen->SendCb().Name() + " = 0;";
 
     resetCbsFun.SetBody(body);
 
@@ -542,10 +546,10 @@ StructCpp CodeGenerator::CbsStruct()
     cbsStruct.SetTypeDef(true);
 
     for(auto rdm :_rdms) {
-        auto param = _handlerGen->ReceiveMsgCb(rdm).FunctionPointer();
+        auto param = _handlerGen->ReceiveMsgCb(rdm).Pointer();
         cbsStruct.AddField({param.type, param.name});
     }
-    auto param = _handlerGen->SendCb().FunctionPointer();
+    auto param = _handlerGen->SendCb().Pointer();
     cbsStruct.AddField({param.type, param.name});
 
     return cbsStruct;

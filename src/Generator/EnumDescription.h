@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <vector>
 #include "Analyzer/Formater.h"
+#include "SizeExpr.h"
 
 using namespace std;
 
@@ -29,7 +30,7 @@ public:
     string GetPrefix();
 
     void SetBitWidth(size_t size);
-    size_t Size() const;
+    SizeExprPtr Size() const;
 
     vector<string> Declaration(bool withEnumText = true);
 

@@ -22,7 +22,7 @@ CalcSizeHelper::CalcStructSize(string typePrefix, StructField field,
     if(type == Ser)
     {
         string arrIndex = isInLoop ? "[i]" : string{};
-        string funParam = "&str->" + field.fieldName + arrIndex;
+        string funParam = "&str->" + field.name + arrIndex;
         callCalcFun = fmt("size += %s(%s);", {calcFunName, funParam});
     }
     else if (type == Des)
@@ -56,9 +56,9 @@ CalcSizeHelper::CalcSimpeTypeSize(StructField field, FunType type)
     string res = sumVar + " += " + FieldSize(field, type);
     if(field.data.isArrayField)
     {
-        res += " * " + field.arrayTypeSize.Get();
+        res += " * " + field.arrayElementSize->ToString();
     }
-    return res + "; //" + field.fieldName;
+    return res + "; //" + field.name;
 }
 
 string CalcSizeHelper::CalcDesSimpleArrTypeSize(string typePrefix,
@@ -73,7 +73,7 @@ string CalcSizeHelper::CalcDesSimpleArrTypeSize(string typePrefix,
     auto dynArrSize = typeSize + " * " + numOfElements;
 
     // calculate dynamic size
-    return fmt("c_size.d += %s; //%s",{dynArrSize, field.fieldName});
+    return fmt("c_size.d += %s; //%s",{dynArrSize, field.name});
 }
 
 Function CalcSizeHelper::CalcSizeFunDecl(string name, FunType type, bool hasStatic)
@@ -134,10 +134,13 @@ vector<string> CalcSizeHelper::AccumulateSize(StructField field)
 
 string CalcSizeHelper::FieldSize(StructField field, FunType type)
 {
+    bool isArray = field.data.isArrayField;
     bool isDynamic = field.data.hasDynamicSize;
 
+    auto bitSize = field.bitSize->ToString();
+    auto elementCount = field.arrayElementCount->ToString();
     // write the fix size for static array field or var names for dynamic
-    auto size = isDynamic ? field.data.lenDefiningVar : field.fieldSize.Get();
+    auto size = isArray ? (isDynamic ? field.data.lenDefiningVar : elementCount) : bitSize;
 
     // generate like
     if(isDynamic && type == Ser) {

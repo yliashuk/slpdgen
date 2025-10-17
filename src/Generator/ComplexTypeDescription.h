@@ -10,7 +10,6 @@
 #include "CppConstructs/FunctionCpp.h"
 #include "CppConstructs/ForLoopCpp.h"
 #include "Utils/StringUtils.h"
-#include "Polynomial.h"
 
 #include "CalcSizeHelper.h"
 
@@ -30,14 +29,6 @@ enum class ComplexType
     Header
 };
 
-struct VarArray
-{
-    string varArrayType;
-    Polynomial varArraySize;
-    string varArrayLen;
-    string varArrayTypeName;
-};
-
 class ComplexTypeDescription
 {
 public:
@@ -52,11 +43,13 @@ public:
 
     string GetCodeName() const;
 
-    Polynomial Size() const;
+    SizeExprPtr Size() const;
+
+    void AddContextOffset(SizeExprPtr offset);
 
     void addField(FieldDataStruct data,
                   pair<string, fieldType> type,
-                  Polynomial fieldSize);
+                  SizeExprPtr fieldSize);
 
     vector<StructField> GetFields() const;
 
@@ -74,8 +67,10 @@ public:
     string BlType() const;
     Function CompareFun();
 
+    void SetAlignedCopyPreferred(bool state);
+
 private:
-    string _name;
+    string name;
     vector<StructField> _fields;
     ComplexType _blockType;
 
@@ -85,11 +80,14 @@ private:
     string _pSer = "Ser_";
     string _pDes = "Des_";
 
-    vector<VarArray> _varArrays;
+    bool _isAlignedCopyPreferred = true;
+
+    vector<SizeExprPtr> _contextOffsets;
 
     string FieldTypePrefix(fieldType type);
 
-    bool IsArrayVarLen(string _name);
+    bool IsArrayVarLen(string name) const;
+    std::vector<std::pair<String, String>> ArrNameSizeVarPairs();
 
     void SetSerDesDeclaration(Function& function, FunType type);
 
@@ -103,9 +101,13 @@ private:
     Strings DesCheckInitValue(const StructField &field);
     Strings DesCheckValueRange(const StructField &field);
 
+    String UsedCopyMethod(const StructField &field);
+    bool ShouldUseAlignedCopy(const StructField &field) const;
+
     static bool IsSimpleBitField(const StructField &field);
     static bool IsArrayBitField(const StructField &field);
     static bool IsArrayAlignedField(const StructField &field);
+
 
 };
 

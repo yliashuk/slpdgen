@@ -5,14 +5,15 @@
 #include <vector>
 #include <string>
 #include <optional>
-#include <AppOptions.h>
+#include "SizeExpr.h"
+#include "AppOptions.h"
 
 class StdTypeHandler
 {
 public:
     StdTypeHandler(AppOptions options);
 
-    std::optional<std::pair<std::string, size_t>>
+    std::optional<std::pair<std::string, SizeExprPtr>>
     CheckType(std::string slpdType, bool isArray);
 
     std::vector<std::string> BitFieldTypes();

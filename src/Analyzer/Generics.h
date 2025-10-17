@@ -33,13 +33,24 @@ typedef enum
     Ok
 } Status;
 
-template<template <class ...> class Container, typename T>
-std::optional<T> FindByName(const Container<T>& types, string name)
+template<typename Container>
+typename Container::iterator FindByName(Container& container, const string& name)
 {
-    auto it = std::find_if(types.begin(), types.end(),
-                           [name](T type) { return type.GetName() == name; });
+    auto it = std::find_if(container.begin(), container.end(),
+                           [name](auto type) { return type.GetName() == name; });
+    return it;
+}
 
-    return it != types.end() ? *it : std::optional<T>{};
+template<typename Container>
+typename std::optional<typename Container::value_type>
+FindByNameOpt(const Container& container, const string& name)
+{
+    auto it = std::find_if(container.begin(), container.end(),
+                           [name](auto type) { return type.GetName() == name; });
+
+    return it != container.end()
+            ? std::optional<typename Container::value_type>(*it)
+            : std::nullopt;
 }
 
 template<typename T>

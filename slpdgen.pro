@@ -67,7 +67,7 @@ HEADERS += \
     src/Generator/ComplexTypeDescription.h \
     src/Generator/EnumDescription.h \
     src/Generator/Generics.h \
-    src/Generator/Polynomial.h \
+    src/Generator/SizeExpr.h \
     src/AppOptions.h \
     src/VersionInfo.h
 
@@ -87,7 +87,7 @@ SOURCES += \
     src/CppConstructs/SwitchCpp.cpp \
     src/Generator/ComplexTypeDescription.cpp \
     src/Generator/EnumDescription.cpp \
-    src/Generator/Polynomial.cpp \
+    src/Generator/SizeExpr.cpp \
     src/main.cpp
 
 INCLUDEPATH += src/

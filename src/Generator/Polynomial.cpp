@@ -1,6 +1,5 @@
 #include "Polynomial.h"
 
-
 Polynomial::Polynomial(){}
 
 Polynomial::Polynomial(int &&constPart): _constPart(constPart){}
@@ -93,6 +92,32 @@ Polynomial Polynomial::operator*(string var)
         return Polynomial("(" +to_string(this->GetConstPart()) + " + " +
                           this->GetDynamicPart() + ") * " + var);
     }
+}
+
+Polynomial Polynomial::operator *(Polynomial var)
+{
+    if(this->isZero() || var.isZero()) return {};
+
+    if(this->GetDynamicPart().empty() && this->GetConstPart() != 0) {
+        return var * this->GetConstPart();
+    } else if(var.GetDynamicPart().empty() && var.GetConstPart() != 0) {
+        return (*this) * var.GetConstPart();
+    } else
+    {
+        string lConstPart = this->GetConstPart() ?
+                    to_string(this->GetConstPart()) + " + ": "";
+        string rConstPart = var.GetConstPart() ?
+                    to_string(var.GetConstPart()) + " + ": "";
+
+        return "(" + lConstPart + this->GetDynamicPart() + ")" +
+               " * " +
+               "(" + rConstPart + var.GetDynamicPart() + ")";
+    }
+}
+
+bool Polynomial::isZero() const
+{
+    return this->GetConstPart() == 0 && this->GetDynamicPart().empty();
 }
 
 void Polynomial::operator+=(int value)

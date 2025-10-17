@@ -1,4 +1,4 @@
-#ifndef CODEGENERATOR_H
+﻿#ifndef CODEGENERATOR_H
 #define CODEGENERATOR_H
 
 #include <set>
@@ -43,9 +43,11 @@ private:
     EnumDescription EnumErrorCode();
 
     StructCpp GenAddrDecl();
-    Parameter GetAddrParameter();
 
     ComplexTypeDescription GenStructDecl(Struct &IntermediateStruct, ComplexType type);
+
+    void SetupCopyOptions(const FieldDataStruct& info, ComplexTypeDescription &type,
+                          SizeExprPtr offset);
 
     string GetVersion();
 

@@ -22,13 +22,13 @@ namespace CppConstructs
         void SetDeclaration(string functionName, string returnType, Parameter parameter);
         void SetDeclaration(string functionName, string returnType);
 
-        void SetExternDeclaration(bool enable);
-        void SetStaticDeclaration(bool enable);
+        void SetExtern(bool enable);
+        void SetStatic(bool enable);
 
-        string FunctionName() const;
+        string Name() const;
 
-        Parameter FunctionPointer() const;
-        string FunctionPointerDeclaration() const;
+        Parameter Pointer() const;
+        string PointerDeclaration() const;
 
         vector<string> Definition() const;
 
@@ -53,7 +53,7 @@ namespace CppConstructs
          bool _hasStatic {};
 
         string _containedClass;
-        string _functionName;
+        string _name;
         string _returnType;
         vector<Parameter> _parameters;
         vector<string> _body;
