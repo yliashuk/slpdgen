@@ -75,6 +75,7 @@ int main(int argc, char **argv)
     yyparse();
     if(isSuccess())
     {
+        formater.ToJson();
         CodeGenerator gen(options, formater);
         gen.Generate();
     }

@@ -9,8 +9,6 @@
 #include "Generics.h"
 #include "Rule.h"
 
-using namespace std;
-
 struct ComplexStatus
 {
     Status status;
@@ -44,6 +42,8 @@ public:
     ComplexStatus AddStructDeclaration(StructType strTp, string structName);
     ComplexStatus AddStructField(StructType strTp, string currBlockName, FieldInfo fieldInfo);
     ComplexStatus AddRule(Rule rule, bool hasReverse = false);
+
+    void ToJson() const;
 
     vector<Enum> enumList, codeList, typeList;
     vector<Struct> structList, packetList ,headerList;

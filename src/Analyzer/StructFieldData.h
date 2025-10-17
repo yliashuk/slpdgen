@@ -8,8 +8,8 @@ using namespace std;
 
 struct FieldInfo
 {
-    string type;
     string name;
+    string type;
     std::optional<string> sizeVar;
     std::optional<uint64_t> constantSize;
     std::optional<string> specialType; //"local" or "remote"

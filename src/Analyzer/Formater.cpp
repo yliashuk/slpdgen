@@ -1,4 +1,8 @@
 ﻿#include "Formater.h"
+#include "Utils/StringUtils.h"
+#include <fstream>
+
+using namespace Utils;
 
 Formater::Formater(){}
 
@@ -122,6 +126,76 @@ ComplexStatus Formater::AddRule(Rule rule, bool hasReverse)
         return complexStatus;
     }
     return error;
+}
+
+void Formater::ToJson() const
+{
+    auto jStr = [](auto opt){ return opt ? fmt("\"%s\"", {*opt}) : "null"; };
+    auto jNum = [](auto opt){ return opt ? to_string(*opt) : "null"; };
+
+    string json;
+
+    string jsonEnumList;
+    for(auto enumIt = enumList.begin(); enumIt != enumList.end(); ++enumIt)
+    {
+        string jsonEnum = fmt("\"name\": \"%s\",\n", {enumIt->name});
+
+        string jsonFields;
+        auto fields = enumIt->fields;
+        for(auto fieldIt = fields.begin(); fieldIt != fields.end(); ++ fieldIt)
+        {
+            string properties;
+
+            properties += fmt("\t\"name\": \"%s\",\n", {fieldIt->first});
+            properties += fmt("\t\"value\": \"%s\"\n", {to_string(fieldIt->second)});
+
+            if(fieldIt != fields.begin()) { jsonFields += ",\n"; }
+            jsonFields += (fmt("{\n%s}", {properties}));
+        }
+        jsonEnum += fmt("\"fields\": [%s]\n", {jsonFields});
+        jsonEnum = fmt("{\n%s}", {jsonEnum});
+        if(enumIt != enumList.begin()) { jsonEnumList += ",\n"; }
+        jsonEnumList += jsonEnum;
+    }
+    jsonEnumList = fmt("[\n%s]", {jsonEnumList});
+
+    json += jsonEnumList;
+
+    string jsonStructList;
+    for(size_t i = 0 ; i < structList.size(); ++i)
+    {
+        string jsonStruct = fmt("\"name\" : \"%s\",\n", {structList[i].name});
+
+        string fieldsProperties;
+        for(size_t z = 0 ; z < structList[i].fields.size(); ++z)
+        {
+            string properties;
+            const auto& info = structList[i].fields[z].second;
+
+            properties += fmt("\t\"name\": \"%s\",\n", {info.name});
+            properties += fmt("\t\"type\": \"%s\",\n", {info.type});
+            properties += fmt("\t\"sizeVar\": %s,\n", {jStr(info.sizeVar)});
+            properties += fmt("\t\"constantSize\": %s,\n", {jNum(info.constantSize)});
+            properties += fmt("\t\"specialType\": %s,\n", {jStr(info.specialType)});
+            properties += fmt("\t\"initValue\": %s,\n", {jNum(info.initValue)});
+            properties += fmt("\t\"fromVal\": %s,\n", {jNum(info.fromVal)});
+            properties += fmt("\t\"toVal\": %s\n", {jNum(info.toVal)});
+
+            if(z > 0) { fieldsProperties += ",\n"; }
+            fieldsProperties += (fmt("{\n%s}", {properties}));
+        }
+        jsonStruct += fmt("\"fields\": [%s]\n", {fieldsProperties});
+        if(i > 0) { jsonStructList += ",\n"; }
+        jsonStructList += fmt("{%s}", {jsonStruct});
+    }
+    jsonStructList = fmt("[\n%s]", {jsonStructList});
+
+    json += jsonStructList;
+
+    ofstream oStream;
+    oStream.open("slpd_json.json");
+    oStream << json;
+    oStream.close();
 }
 
 ComplexStatus Formater::RuleCheck(Rule rule)
