@@ -1,6 +1,5 @@
 ﻿#include "Formater.h"
 #include "Utils/StringUtils.h"
-#include <fstream>
 
 using namespace Utils;
 
@@ -128,74 +127,89 @@ ComplexStatus Formater::AddRule(Rule rule, bool hasReverse)
     return error;
 }
 
-void Formater::ToJson() const
+string Formater::ToJson() const
 {
     auto jStr = [](auto opt){ return opt ? fmt("\"%s\"", {*opt}) : "null"; };
     auto jNum = [](auto opt){ return opt ? to_string(*opt) : "null"; };
+    auto checkAndAddCommas = [](string& s){s = s.empty() ? s : s + ",\n";};
+
+    auto jEnums = [&checkAndAddCommas](const auto& slpdEnums) {
+        string jObj;
+        for(const auto& enumR : slpdEnums)
+        {
+            string jEnum = fmt("\"name\": \"%s\",\n", {enumR.name});
+            string jFields;
+            for(const auto& field : enumR.fields)
+            {
+                string jField;
+                jField += fmt("\t\"name\": \"%s\",\n", {field.first});
+                jField += fmt("\t\"value\": %s\n", {to_string(field.second)});
+
+                checkAndAddCommas(jFields);
+                jFields += (fmt("{\n%s}", {jField}));
+            }
+            jEnum += fmt("\"fields\": [\n%s]\n", {jFields});
+            checkAndAddCommas(jObj);
+            jObj += fmt("{\n%s}", {jEnum});
+        }
+        return jObj;
+    };
+
+    auto jStructs = [&jStr, &jNum, &checkAndAddCommas](const auto& slpdStructs) {
+        string jObj;
+        for(const auto& structR : slpdStructs)
+        {
+            string jStruct = fmt("\"name\": \"%s\",\n", {structR.name});
+            string jFields;
+            for(const auto& field : structR.fields)
+            {
+                const auto& info = field.second;
+                string jField;
+                jField += fmt("\t\"name\": \"%s\",\n", {info.name});
+                jField += fmt("\t\"type\": \"%s\",\n", {info.type});
+                jField += fmt("\t\"sizeVar\": %s,\n", {jStr(info.sizeVar)});
+                jField += fmt("\t\"constantSize\": %s,\n", {jNum(info.constantSize)});
+                jField += fmt("\t\"specialType\": %s,\n", {jStr(info.specialType)});
+                jField += fmt("\t\"initValue\": %s,\n", {jNum(info.initValue)});
+                jField += fmt("\t\"fromVal\": %s,\n", {jNum(info.fromVal)});
+                jField += fmt("\t\"toVal\": %s\n", {jNum(info.toVal)});
+
+                checkAndAddCommas(jFields);
+                jFields += (fmt("{\n%s}", {jField}));
+            }
+            jStruct += fmt("\"fields\": [\n%s]\n", {jFields});
+            checkAndAddCommas(jObj);
+            jObj += fmt("{\n%s}", {jStruct});
+        }
+        return jObj;
+    };
+
+    auto jRules = [&jStr, &checkAndAddCommas](const auto& slpdRules) {
+        string jObj;
+        for(const auto& rule : slpdRules)
+        {
+            string jRule;
+            jRule += fmt("\t\"command\": %s,\n", {jStr(rule.command)});
+            jRule += fmt("\t\"sendType\": %s,\n", {jStr(rule.sendType)});
+            jRule += fmt("\t\"sendPacket\": %s,\n", {jStr(rule.sendPacket)});
+            jRule += fmt("\t\"responseType\": %s,\n", {jStr(rule.responseType)});
+            jRule += fmt("\t\"responsePacket\": %s\n", {jStr(rule.responsePacket)});
+
+            checkAndAddCommas(jObj);
+            jObj += fmt("{\n%s}", {jRule});
+        }
+        return jObj;
+    };
 
     string json;
-
-    string jsonEnumList;
-    for(auto enumIt = enumList.begin(); enumIt != enumList.end(); ++enumIt)
-    {
-        string jsonEnum = fmt("\"name\": \"%s\",\n", {enumIt->name});
-
-        string jsonFields;
-        auto fields = enumIt->fields;
-        for(auto fieldIt = fields.begin(); fieldIt != fields.end(); ++ fieldIt)
-        {
-            string properties;
-
-            properties += fmt("\t\"name\": \"%s\",\n", {fieldIt->first});
-            properties += fmt("\t\"value\": \"%s\"\n", {to_string(fieldIt->second)});
-
-            if(fieldIt != fields.begin()) { jsonFields += ",\n"; }
-            jsonFields += (fmt("{\n%s}", {properties}));
-        }
-        jsonEnum += fmt("\"fields\": [%s]\n", {jsonFields});
-        jsonEnum = fmt("{\n%s}", {jsonEnum});
-        if(enumIt != enumList.begin()) { jsonEnumList += ",\n"; }
-        jsonEnumList += jsonEnum;
-    }
-    jsonEnumList = fmt("[\n%s]", {jsonEnumList});
-
-    json += jsonEnumList;
-
-    string jsonStructList;
-    for(size_t i = 0 ; i < structList.size(); ++i)
-    {
-        string jsonStruct = fmt("\"name\" : \"%s\",\n", {structList[i].name});
-
-        string fieldsProperties;
-        for(size_t z = 0 ; z < structList[i].fields.size(); ++z)
-        {
-            string properties;
-            const auto& info = structList[i].fields[z].second;
-
-            properties += fmt("\t\"name\": \"%s\",\n", {info.name});
-            properties += fmt("\t\"type\": \"%s\",\n", {info.type});
-            properties += fmt("\t\"sizeVar\": %s,\n", {jStr(info.sizeVar)});
-            properties += fmt("\t\"constantSize\": %s,\n", {jNum(info.constantSize)});
-            properties += fmt("\t\"specialType\": %s,\n", {jStr(info.specialType)});
-            properties += fmt("\t\"initValue\": %s,\n", {jNum(info.initValue)});
-            properties += fmt("\t\"fromVal\": %s,\n", {jNum(info.fromVal)});
-            properties += fmt("\t\"toVal\": %s\n", {jNum(info.toVal)});
-
-            if(z > 0) { fieldsProperties += ",\n"; }
-            fieldsProperties += (fmt("{\n%s}", {properties}));
-        }
-        jsonStruct += fmt("\"fields\": [%s]\n", {fieldsProperties});
-        if(i > 0) { jsonStructList += ",\n"; }
-        jsonStructList += fmt("{%s}", {jsonStruct});
-    }
-    jsonStructList = fmt("[\n%s]", {jsonStructList});
-
-    json += jsonStructList;
-
-    ofstream oStream;
-    oStream.open("slpd_json.json");
-    oStream << json;
-    oStream.close();
+    json += fmt("\n\"type\": [\n%s],", {jEnums(typeList)});
+    json += fmt("\n\"code\": [\n%s],", {jEnums(codeList)});
+    json += fmt("\n\"enums\": [\n%s],", {jEnums(enumList)});
+    json += fmt("\n\"header\": [\n%s],", {jStructs(headerList)});
+    json += fmt("\n\"structs\": [\n%s],", {jStructs(structList)});
+    json += fmt("\n\"messages\": [\n%s],", {jStructs(packetList)});
+    json += fmt("\n\"rules\": [\n%s]", {jRules(rules)});
+    return fmt("{%s}", {json});
 }
 
 ComplexStatus Formater::RuleCheck(Rule rule)

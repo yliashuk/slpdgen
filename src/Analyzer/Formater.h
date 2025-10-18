@@ -43,7 +43,7 @@ public:
     ComplexStatus AddStructField(StructType strTp, string currBlockName, FieldInfo fieldInfo);
     ComplexStatus AddRule(Rule rule, bool hasReverse = false);
 
-    void ToJson() const;
+    string ToJson() const;
 
     vector<Enum> enumList, codeList, typeList;
     vector<Struct> structList, packetList ,headerList;
