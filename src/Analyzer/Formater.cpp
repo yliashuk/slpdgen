@@ -1,4 +1,7 @@
 ﻿#include "Formater.h"
+#include "Utils/StringUtils.h"
+
+using namespace Utils;
 
 Formater::Formater(){}
 
@@ -122,6 +125,91 @@ ComplexStatus Formater::AddRule(Rule rule, bool hasReverse)
         return complexStatus;
     }
     return error;
+}
+
+string Formater::ToJson() const
+{
+    auto jStr = [](auto opt){ return opt ? fmt("\"%s\"", {*opt}) : "null"; };
+    auto jNum = [](auto opt){ return opt ? to_string(*opt) : "null"; };
+    auto checkAndAddCommas = [](string& s){s = s.empty() ? s : s + ",\n";};
+
+    auto jEnums = [&checkAndAddCommas](const auto& slpdEnums) {
+        string jObj;
+        for(const auto& enumR : slpdEnums)
+        {
+            string jEnum = fmt("\"name\": \"%s\",\n", {enumR.name});
+            string jFields;
+            for(const auto& field : enumR.fields)
+            {
+                string jField;
+                jField += fmt("\t\"name\": \"%s\",\n", {field.first});
+                jField += fmt("\t\"value\": %s\n", {to_string(field.second)});
+
+                checkAndAddCommas(jFields);
+                jFields += (fmt("{\n%s}", {jField}));
+            }
+            jEnum += fmt("\"fields\": [\n%s]\n", {jFields});
+            checkAndAddCommas(jObj);
+            jObj += fmt("{\n%s}", {jEnum});
+        }
+        return jObj;
+    };
+
+    auto jStructs = [&jStr, &jNum, &checkAndAddCommas](const auto& slpdStructs) {
+        string jObj;
+        for(const auto& structR : slpdStructs)
+        {
+            string jStruct = fmt("\"name\": \"%s\",\n", {structR.name});
+            string jFields;
+            for(const auto& field : structR.fields)
+            {
+                const auto& info = field.second;
+                string jField;
+                jField += fmt("\t\"name\": \"%s\",\n", {info.name});
+                jField += fmt("\t\"type\": \"%s\",\n", {info.type});
+                jField += fmt("\t\"sizeVar\": %s,\n", {jStr(info.sizeVar)});
+                jField += fmt("\t\"constantSize\": %s,\n", {jNum(info.constantSize)});
+                jField += fmt("\t\"specialType\": %s,\n", {jStr(info.specialType)});
+                jField += fmt("\t\"initValue\": %s,\n", {jNum(info.initValue)});
+                jField += fmt("\t\"fromVal\": %s,\n", {jNum(info.fromVal)});
+                jField += fmt("\t\"toVal\": %s\n", {jNum(info.toVal)});
+
+                checkAndAddCommas(jFields);
+                jFields += (fmt("{\n%s}", {jField}));
+            }
+            jStruct += fmt("\"fields\": [\n%s]\n", {jFields});
+            checkAndAddCommas(jObj);
+            jObj += fmt("{\n%s}", {jStruct});
+        }
+        return jObj;
+    };
+
+    auto jRules = [&jStr, &checkAndAddCommas](const auto& slpdRules) {
+        string jObj;
+        for(const auto& rule : slpdRules)
+        {
+            string jRule;
+            jRule += fmt("\t\"command\": %s,\n", {jStr(rule.command)});
+            jRule += fmt("\t\"sendType\": %s,\n", {jStr(rule.sendType)});
+            jRule += fmt("\t\"sendPacket\": %s,\n", {jStr(rule.sendPacket)});
+            jRule += fmt("\t\"responseType\": %s,\n", {jStr(rule.responseType)});
+            jRule += fmt("\t\"responsePacket\": %s\n", {jStr(rule.responsePacket)});
+
+            checkAndAddCommas(jObj);
+            jObj += fmt("{\n%s}", {jRule});
+        }
+        return jObj;
+    };
+
+    string json;
+    json += fmt("\n\"type\": [\n%s],", {jEnums(typeList)});
+    json += fmt("\n\"code\": [\n%s],", {jEnums(codeList)});
+    json += fmt("\n\"enums\": [\n%s],", {jEnums(enumList)});
+    json += fmt("\n\"header\": [\n%s],", {jStructs(headerList)});
+    json += fmt("\n\"structs\": [\n%s],", {jStructs(structList)});
+    json += fmt("\n\"messages\": [\n%s],", {jStructs(packetList)});
+    json += fmt("\n\"rules\": [\n%s]", {jRules(rules)});
+    return fmt("{%s}", {json});
 }
 
 ComplexStatus Formater::RuleCheck(Rule rule)
