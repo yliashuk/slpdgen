@@ -34,7 +34,7 @@ private:
     Formater _exchangeDescription;
 
     StdTypeHandler _stdTypeHandler;
-    vector<RulesDefinedMessage> _rdms;
+    std::set<RulesDefinedMessage> _rdms;
     std::unique_ptr<MsgHandlerGen> _handlerGen;
 
     bool bitcpyUsed = false;

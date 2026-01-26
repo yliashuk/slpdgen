@@ -3,7 +3,7 @@
 
 #define MAJOR_VERSION  1
 #define MINOR_VERSION  2
-#define PATCH_VERSION  0
+#define PATCH_VERSION  1
 
 #define APP_NAME       "slpdgen"
 #define APP_DATE       __DATE__

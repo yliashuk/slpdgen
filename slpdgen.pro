@@ -1,3 +1,4 @@
+CONFIG += console
 QMAKE_CXXFLAGS = -std=c++17 -Wall -Wshadow -Wpointer-arith -pedantic
 
 # Generate Parser

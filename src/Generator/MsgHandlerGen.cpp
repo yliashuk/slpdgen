@@ -12,7 +12,7 @@ MsgHandlerGen::MsgHandlerGen(AppOptions options,
       _header(header)
 {}
 
-Function MsgHandlerGen::parseFun(const vector<RulesDefinedMessage>& rdms)
+Function MsgHandlerGen::parseFun(const set<RulesDefinedMessage>& rdms)
 {
     Function parseFun;
     vector<Parameter> params;
@@ -53,7 +53,7 @@ Function MsgHandlerGen::parseFun(const vector<RulesDefinedMessage>& rdms)
 
     string callCalcFun;
 
-    for(auto rdm = rdms.begin(); rdm < rdms.end(); rdm++)
+    for(auto rdm = rdms.begin(); rdm != rdms.end(); rdm++)
     {
         // add switch case
         if(lastRdmCommand != rdm->command)
@@ -79,8 +79,8 @@ Function MsgHandlerGen::parseFun(const vector<RulesDefinedMessage>& rdms)
                                              _options.isCpp ? "" : "0"});
             if(_options.isC)
             {
-                buffer << "char buffer[size.d + 1];"
-                       << "memset(&buffer[0], 0, size.d + 1);"
+                buffer << "char buffer[size.d / 8 + 1];"
+                       << "memset(&buffer[0], 0, size.d / 8 + 1);"
                        << "buf_p = &buffer[0];";
             }
 
@@ -88,6 +88,7 @@ Function MsgHandlerGen::parseFun(const vector<RulesDefinedMessage>& rdms)
             buffer << returnErrorOnNull("op_status");
 
             buffer << receiveMsgCbCall + ';';
+            buffer << "break;";
             if_else_dataLenStatement.addCase("header.dataLen * 8 >= size.r", buffer);
         }
         else
@@ -95,6 +96,7 @@ Function MsgHandlerGen::parseFun(const vector<RulesDefinedMessage>& rdms)
             buffer.clear();
 
             buffer << receiveMsgCbCall + ';';
+            buffer << "break;";
             if_else_dataLenStatement.addCase("header.dataLen == 0", buffer);
         }
         {
@@ -119,7 +121,7 @@ Function MsgHandlerGen::parseFun(const vector<RulesDefinedMessage>& rdms)
             if_else_dataLenStatement.clear();
         }
         // added last rule handler
-        if(rdm == rdms.end() - 1) {
+        if(rdm == std::prev(rdms.end())) {
             string switchVal = fmt("%s%s", {_fpfx, lastRdmCommand});
             switchOperator.addCase(switchVal, ifLocalStatement.definition());
         }

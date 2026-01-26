@@ -1,6 +1,7 @@
 #ifndef MSGHANDLERGEN_H
 #define MSGHANDLERGEN_H
 
+#include <set>
 #include "AppOptions.h"
 #include "EnumDescription.h"
 #include "ComplexTypeDescription.h"
@@ -15,7 +16,7 @@ public:
                   ComplexTypeDescription header);
 
     Function sendMsgFun(const RulesDefinedMessage& msg);
-    Function parseFun(const vector<RulesDefinedMessage> &rdms);
+    Function parseFun(const std::set<RulesDefinedMessage> &rdms);
 
     Function sendCb();
     Function checkHeaderCb();

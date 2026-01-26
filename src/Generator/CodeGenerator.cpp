@@ -79,9 +79,9 @@ void CodeGenerator::analizeRules()
     {
         if(rule.hasResponse())
         {
-            _rdms += Rdm(*rule.command, *rule.responseType, rule.responsePacket);
+            _rdms.insert(Rdm(*rule.command, *rule.responseType, rule.responsePacket));
         }
-        _rdms += Rdm(*rule.command, *rule.sendType, rule.sendPacket);
+        _rdms.insert(Rdm(*rule.command, *rule.sendType, rule.sendPacket));
     }
 }
 

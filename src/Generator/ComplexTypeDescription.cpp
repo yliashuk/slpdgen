@@ -216,7 +216,7 @@ vector<string> ComplexTypeDescription::sizeCalcFun(FunType type, bool hasStatic)
         body << "(void)p;";
         body << "(void)offset;";
 
-        string initVal = fmt("{sizeof(%s), 0, 0}", {structName});
+        string initVal = fmt("{sizeof(%s) * 8, 0, 0}", {structName});
         body << fmt("c_size_t c_size = %s;", {initVal});
     }
 
