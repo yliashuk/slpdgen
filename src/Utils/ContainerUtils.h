@@ -1,6 +1,8 @@
 #ifndef CONTAINERUTILS_H
 #define CONTAINERUTILS_H
 
+#include <algorithm>
+
 namespace Utils
 {
     template<typename T, template<class...> class Container>
