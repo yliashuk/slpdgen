@@ -377,14 +377,14 @@ void errorPrint(ComplexStatus s)
 
 long int GetNum(const char * string)
 {
-    auto var = strtol(string, NULL, 10);
+    auto var = strtoull(string, NULL, 10);
     if(var == 0)
     {
         size_t found = std::string(string).find("0x");
         if(found == std::string::npos)
             found = std::string(string).find("0X");
         if(found != std::string::npos)
-            var = strtol(string, NULL, 16);
+            var = strtoull(string, NULL, 16);
     }
     return var;
 }

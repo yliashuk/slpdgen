@@ -340,9 +340,14 @@ Strings ComplexTypeDescription::serArrayField(const ComplexField& field)
             loopBody << fmt("%s_value = str->%s[i]%{%s};", {arrName, arrName, valueField});
             string copyFmt = "pos += %s(p, pos, &%s_value, 0, %s);";
             loopBody << fmt(copyFmt, {copyName, arrName, elementSize});
-        } else if(isArrayAlignedField(field)) {
-            string copyFmt = "pos += %s(p, pos, &str->%s[0], 0, %s * %s);";
-            body << fmt(copyFmt, {copyName, arrName, elementSize, arrSize});
+        } else if(isArrayAlignedField(field))
+        {
+            bool isC = _options.isC;
+            string srcPtr = fmt("%sstr->%s%s", {isC ? "&" : "", arrName,
+                                                isC ? "[0]" : ".data()"});
+
+            string copyFmt = "pos += %s(p, pos, %s, 0, %s * %s);";
+            body << fmt(copyFmt, {copyName, srcPtr, elementSize, arrSize});
         } else {
             string copyFmt = "pos += %s(p, pos, &str->%s[i], 0, %s);";
             loopBody << fmt(copyFmt, {copyName, arrName, elementSize});
@@ -393,9 +398,14 @@ Strings ComplexTypeDescription::desArrayField(const ComplexField &field)
 
             string valueField = isCppBoolDynamicArray(field) ? "" : ".value";
             loopBody << fmt("str->%s[i]%{%s} = %s_value;", {arrName, valueField, arrName});
-        } else if(isArrayAlignedField(field)) {
-            string copyFmt = "pos += %s(&str->%s[0], 0, p, pos, %s * %s);";
-            body << fmt(copyFmt, {copyName, arrName, elementSize, arrSize});
+        } else if(isArrayAlignedField(field))
+        {
+            bool isC = _options.isC;
+            string dstPtr = fmt("%sstr->%s%s", {isC ? "&" : "", arrName,
+                                                isC ? "[0]" : ".data()"});
+
+            string copyFmt = "pos += %s(%s, 0, p, pos, %s * %s);";
+            body << fmt(copyFmt, {copyName, dstPtr, elementSize, arrSize});
         } else {
             string copyFmt = "pos += %s(&str->%s[i], 0, p, pos, %s);";
             loopBody << fmt(copyFmt, {copyName, arrName, elementSize});

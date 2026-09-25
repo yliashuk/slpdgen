@@ -75,14 +75,15 @@ Function MsgHandlerGen::parseFun(const set<RulesDefinedMessage>& rdms)
         {
             buffer.clear();
 
-            buffer << fmt("%s str = {%s};", {rdm->packet->getCodeName(),
-                                             _options.isCpp ? "" : "0"});
             if(_options.isC)
             {
+                buffer << returnErrorOnNull(receiveMsgCbPtr);
                 buffer << "char buffer[size.d / 8 + 1];"
                        << "memset(&buffer[0], 0, size.d / 8 + 1);"
                        << "buf_p = &buffer[0];";
             }
+            buffer << fmt("%s str = {%s};", {rdm->packet->getCodeName(),
+                                             _options.isCpp ? "" : "0"});
 
             buffer << _bpfx + rdm->packet->desCall("l_p", "offset", "&str", "&op_status") + ";";
             buffer << returnErrorOnNull("op_status");
@@ -95,6 +96,7 @@ Function MsgHandlerGen::parseFun(const set<RulesDefinedMessage>& rdms)
         {
             buffer.clear();
 
+            if(_options.isC){ buffer << returnErrorOnNull(receiveMsgCbPtr); }
             buffer << receiveMsgCbCall + ';';
             buffer << "break;";
             if_else_dataLenStatement.addCase("header.dataLen == 0", buffer);
@@ -102,9 +104,6 @@ Function MsgHandlerGen::parseFun(const set<RulesDefinedMessage>& rdms)
         {
             vector<string> caseBody;
             vector<string> statementDef = if_else_dataLenStatement.definition();
-
-            if(!_options.isQt)
-            { caseBody << returnErrorOnNull(receiveMsgCbPtr); }
 
             // Print call calc size fun after check header.type
             if(rdm->packet)
